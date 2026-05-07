@@ -1,15 +1,15 @@
 const CACHE = 'planflight-v1';
 
 const STATIC = [
-  '/',
-  '/index.html',
-  '/brief.html',
-  '/ac.html',
-  '/wx.html',
-  '/tools.html',
-  '/log.html',
-  '/style.css',
-  '/manifest.json',
+  './',
+  'index.html',
+  'brief.html',
+  'ac.html',
+  'wx.html',
+  'tools.html',
+  'log.html',
+  'style.css',
+  'manifest.json',
 ];
 
 self.addEventListener('install', e => {

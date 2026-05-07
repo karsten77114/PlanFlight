@@ -2,7 +2,7 @@
   "name": "PlanFlight — 飛行員工作台",
   "short_name": "PlanFlight",
   "description": "STARLUX 飛行員整合工作台：LIDO 簡報、MEL、天氣、FDP 計算",
-  "start_url": "/",
+  "start_url": "/PlanFlight/",
   "display": "standalone",
   "background_color": "#070c14",
   "theme_color": "#0f1824",
