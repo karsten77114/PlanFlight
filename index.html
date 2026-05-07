@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>BETA</span></div>
+  <div class="topbar-right">
+    <div class="dot-status" id="lido-status-dot">
+      <div class="dot dot-red" id="lido-dot"></div>
+      <span id="lido-text">LIDO 未登入</span>
+    </div>
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <!-- 今日航班 -->
+  <div class="flight-hero-card" id="home-flight-card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <div class="flt-num" id="home-flt-num">—</div>
+      <div style="flex:1">
+        <div class="flt-route">
+          <span id="home-dep">—</span>
+          <span class="flt-arrow">→</span>
+          <span id="home-dest">—</span>
+        </div>
+        <div style="font-size:11px;color:var(--text2)" id="home-meta">請前往「簡報」頁查詢班次</div>
+      </div>
+      <div style="text-align:right" id="home-time-block">
+        <div style="font-size:11px;color:var(--text3)">STD</div>
+        <div style="font-size:18px;font-weight:800" id="home-std">—</div>
+      </div>
+    </div>
+    <div class="flt-meta">
+      <div class="flt-meta-item"><span class="flt-meta-label">ETE</span><span class="flt-meta-val" id="home-ete">—</span></div>
+      <div class="flt-meta-item"><span class="flt-meta-label">STA</span><span class="flt-meta-val" id="home-sta">—</span></div>
+      <div class="flt-meta-item"><span class="flt-meta-label">距起飛</span><span class="flt-meta-val" id="home-countdown">—</span></div>
+    </div>
+    <div class="status-row">
+      <div class="status-badge warn" id="badge-brief">📋 簡報待查</div>
+      <div class="status-badge ok"   id="badge-mel">✓ MEL 待查</div>
+      <div class="status-badge warn" id="badge-wx">🌤 天氣待查</div>
+    </div>
+  </div>
+
+  <!-- 航線智能提醒（動態產生） -->
+  <div id="route-notice-wrap"></div>
+
+  <!-- PIREPS 飛前檢查 -->
+  <div class="card">
+    <div class="pireps-header">
+      <div class="pireps-title">PIREPS 飛前檢查</div>
+      <div class="pireps-reset" onclick="resetPireps()">重置</div>
+    </div>
+    <div class="pireps-progress">
+      <div class="pireps-bar" id="pireps-bar" style="width:0%"></div>
+    </div>
+    <div id="pireps-list">
+      <!-- P -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">P — Personal</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">Sign On 完成</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">App 更新（Flysmart / FD PRO）</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">Passport / ID / Flashlight / MED</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">入境文件確認</div>
+        </div>
+      </div>
+      <!-- I -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">I — Information</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">班號 / STD / ETE / 巡航高度確認</div>
+        </div>
+      </div>
+      <!-- R -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">R — Registration</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">機號 / MEL / 停機位確認</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">油量 / 水量確認</div>
+        </div>
+      </div>
+      <!-- E -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">E — Enroute Wx</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">出發 / 目的地 / 備降天氣查詢</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">航路 SIGMET / 亂流確認</div>
+        </div>
+      </div>
+      <!-- P performance -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">P — Performance</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">TOW / LDW / MEL 限制確認</div>
+        </div>
+      </div>
+      <!-- S -->
+      <div class="pireps-group">
+        <div class="pireps-group-label">S — Special Procedure</div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">Fleet Notice 確認</div>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div>
+          <div class="check-label">OFP Signed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Curfew 倒數 -->
+  <div class="card">
+    <div class="card-title">宵禁倒數</div>
+    <div class="curfew-card">
+      <div>
+        <div class="curfew-airport">RCTP 桃園</div>
+        <div class="curfew-label">宵禁 23:00–07:00 UTC</div>
+      </div>
+      <div style="text-align:right">
+        <div class="curfew-time" id="curfew-time">--:--</div>
+        <div class="curfew-sub" id="curfew-sub">計算中</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- Tab Bar -->
+<nav class="tabbar">
+  <a class="tab active" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<script>
+// ── UTC Clock ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Curfew Countdown (RCTP: curfew 23:00–07:00 UTC) ─────
+function updateCurfew() {
+  const now = new Date();
+  const h = now.getUTCHours();
+  let diff, label;
+  const pad = n => String(n).padStart(2,'0');
+
+  if (h >= 7 && h < 23) {
+    // 宵禁前：倒數到 23:00
+    const end = new Date(now);
+    end.setUTCHours(23,0,0,0);
+    diff = end - now;
+    label = '距宵禁開始';
+  } else {
+    // 宵禁中：倒數到 07:00
+    const end = new Date(now);
+    end.setUTCHours(7,0,0,0);
+    if (h >= 23) end.setUTCDate(end.getUTCDate() + 1);
+    diff = end - now;
+    if (diff < 0) diff += 86400000;
+    label = '距宵禁結束';
+  }
+
+  const hh = Math.floor(diff / 3600000);
+  const mm = Math.floor((diff % 3600000) / 60000);
+  document.getElementById('curfew-time').textContent = `${pad(hh)}:${pad(mm)}`;
+  document.getElementById('curfew-sub').textContent = label;
+}
+setInterval(updateCurfew, 10000);
+updateCurfew();
+
+// ── Restore last briefing data on home ──────────────────
+(function loadHomeData() {
+  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  const userId = localStorage.getItem('jxb_userId');
+  const dot = document.getElementById('lido-dot');
+  const txt = document.getElementById('lido-text');
+  const token = localStorage.getItem('jxb_session');
+
+  if (token && userId) {
+    dot.className = 'dot dot-green';
+    txt.textContent = userId;
+    document.getElementById('badge-brief').className = 'status-badge ok';
+    document.getElementById('badge-brief').textContent = '✓ 已登入';
+  } else if (userId) {
+    dot.className = 'dot dot-yellow';
+    txt.textContent = '需重新登入';
+  }
+
+  if (!d) return;
+  const o = d.ofp || {};
+  if (o.flight) document.getElementById('home-flt-num').textContent = 'JX' + o.flight;
+  if (o.dep)    document.getElementById('home-dep').textContent = o.dep;
+  if (o.dest)   document.getElementById('home-dest').textContent = o.dest;
+  if (o.reg)    document.getElementById('home-meta').textContent = (o.acType || 'A321') + ' · ' + o.reg;
+  if (o.stdUtc) document.getElementById('home-std').textContent = o.stdUtc + 'Z';
+  if (o.staUtc) document.getElementById('home-sta').textContent = o.staUtc;
+  if (o.ete)    document.getElementById('home-ete').textContent = o.ete;
+
+  // Route-aware notice
+  renderRouteNotice(o.dest);
+
+  // Countdown to STD
+  if (o.stdUtc && d.date) {
+    updateCountdown(d.date, o.stdUtc);
+    setInterval(() => updateCountdown(d.date, o.stdUtc), 30000);
+  }
+})();
+
+function updateCountdown(dateStr, stdUtc) {
+  if (!dateStr || !stdUtc) return;
+  const [h, m] = stdUtc.split(':').map(Number);
+  const dep = new Date(dateStr + 'T' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':00Z');
+  const diff = dep - new Date();
+  const el = document.getElementById('home-countdown');
+  if (diff < 0) { el.textContent = '已起飛'; return; }
+  const hh = Math.floor(diff / 3600000);
+  const mm = Math.floor((diff % 3600000) / 60000);
+  el.textContent = hh + 'h ' + String(mm).padStart(2,'0') + 'm';
+}
+
+// ── Route-aware notice ───────────────────────────────────
+const ROUTE_NOTICES = {
+  JP: { title: '🇯🇵 日本航線 — 自動提醒', items: ['確認 Tono2 天氣', '查看日本 NOTAM 地圖（Skyinfo）', '確認日本入境文件'] },
+  SE: { title: '🌏 東南亞航線 — 自動提醒', items: ['確認入境文件（非台灣籍旅客）', '注意 KUL/SGN 地面高溫，低溫修正可能不適用', '確認航路亂流（SIGMET TROPICAL）'] },
+  HK: { title: '🇭🇰 港澳航線 — 自動提醒', items: ['確認 RNP/AR 授權', '查看 Kai Tak 特殊進場程序'] },
+  US: { title: '🇺🇸 美線 — 自動提醒',      items: ['確認 CANP 文件', '確認 Pacific HF 頻率', '確認 MNPS 資格'] },
+};
+
+const DEST_MAP = {
+  NRT:'JP', HND:'JP', KIX:'JP', FUK:'JP', OKA:'JP', CTS:'JP', NGO:'JP',
+  KUL:'SE', SGN:'SE', BKK:'SE', MNL:'SE', SIN:'SE', DPS:'SE', CEB:'SE',
+  HKG:'HK', MFM:'HK',
+  LAX:'US', SFO:'US', JFK:'US',
+};
+
+function renderRouteNotice(dest) {
+  if (!dest) return;
+  const key = DEST_MAP[dest.toUpperCase()];
+  if (!key || !ROUTE_NOTICES[key]) return;
+  const n = ROUTE_NOTICES[key];
+  document.getElementById('route-notice-wrap').innerHTML = `
+    <div class="route-notice">
+      <div class="route-notice-title">${n.title}</div>
+      ${n.items.map(i => `<div class="route-notice-item">📋 ${i}</div>`).join('')}
+    </div>`;
+}
+
+// ── PIREPS ───────────────────────────────────────────────
+function toggleCheck(el) {
+  const box = el.querySelector('.check-box');
+  const lbl = el.querySelector('.check-label');
+  const checked = box.classList.toggle('checked');
+  box.textContent = checked ? '✓' : '';
+  lbl.classList.toggle('done', checked);
+  savePireps();
+  updateProgress();
+}
+function updateProgress() {
+  const all  = document.querySelectorAll('.check-box').length;
+  const done = document.querySelectorAll('.check-box.checked').length;
+  document.getElementById('pireps-bar').style.width = (done / all * 100) + '%';
+}
+function resetPireps() {
+  document.querySelectorAll('.check-box').forEach(b => { b.classList.remove('checked'); b.textContent = ''; });
+  document.querySelectorAll('.check-label').forEach(l => l.classList.remove('done'));
+  document.getElementById('pireps-bar').style.width = '0%';
+  localStorage.removeItem('pf_pireps');
+}
+function savePireps() {
+  const states = [...document.querySelectorAll('.check-box')].map(b => b.classList.contains('checked'));
+  localStorage.setItem('pf_pireps', JSON.stringify(states));
+}
+(function loadPireps() {
+  const saved = JSON.parse(localStorage.getItem('pf_pireps') || 'null');
+  if (!saved) return;
+  const boxes = document.querySelectorAll('.check-box');
+  saved.forEach((on, i) => {
+    if (on && boxes[i]) {
+      boxes[i].classList.add('checked');
+      boxes[i].textContent = '✓';
+      boxes[i].closest('.check-item').querySelector('.check-label').classList.add('done');
+    }
+  });
+  updateProgress();
+})();
+
+// ── PWA Service Worker ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(console.error);
+}
+</script>
+</body>
+</html>

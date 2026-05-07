@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight — 工具</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>工具</span></div>
+  <div class="topbar-right">
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <div class="tool-tabs">
+    <button class="tool-tab active" onclick="setTool(this,'fdp')">FDP<br>休息</button>
+    <button class="tool-tab" onclick="setTool(this,'pa')">PA<br>廣播詞</button>
+    <button class="tool-tab" onclick="setTool(this,'calc')">計算<br>工具</button>
+    <button class="tool-tab" onclick="setTool(this,'ot')">加班費</button>
+    <button class="tool-tab" onclick="setTool(this,'links')">連結<br>入口</button>
+  </div>
+
+  <!-- ══ FDP ══ -->
+  <div class="tool-panel active" id="tool-fdp">
+    <div class="cred-info"><span class="tag">本地</span>全部在裝置上計算，不需網路或帳號。CAR 07-02A</div>
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label">機組配置</label>
+        <select class="form-input" id="fdp-config" onchange="calcFDP()">
+          <option value="2">2P — 單組（Max FDP 14h / 飛時 10h）</option>
+          <option value="3">3P — 加強（Max FDP 18h / 飛時 12h）</option>
+          <option value="4">4P — 雙組（Max FDP 24h / 飛時 12h）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">FDP 開始時間（報到，UTC）</label>
+        <input class="form-input" id="fdp-start" type="time" value="07:00" onchange="calcFDP()">
+      </div>
+      <div class="grid2" style="gap:8px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Class 1 Bunk</label>
+          <select class="form-input" id="fdp-bunk" onchange="calcFDP()">
+            <option value="0">無</option>
+            <option value="2">有（+2h FDP）</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">機長裁量權</label>
+          <select class="form-input" id="fdp-cmd" onchange="calcFDP()">
+            <option value="0">不使用</option>
+            <option value="2">使用（+2h）</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-box" id="fdp-result">
+      <div class="fdp-result-row">
+        <span class="fdp-label">Max FDP 截止</span>
+        <span class="fdp-val" id="fdp-max-end">—</span>
+      </div>
+      <div class="fdp-result-row">
+        <span class="fdp-label">Max Flight Time 截止</span>
+        <span class="fdp-val" id="fdp-ft-end">—</span>
+      </div>
+      <div class="fdp-result-row">
+        <span class="fdp-label">最低休息（下班後）</span>
+        <span class="fdp-val warn" id="fdp-rest">10h 00m</span>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:10px;margin-bottom:4px">時間軸（UTC）</div>
+      <div class="timeline" id="fdp-timeline">
+        <div class="timeline-seg seg-fdp" style="left:0%;width:60%" id="tl-fdp">FDP</div>
+        <div class="timeline-seg seg-rest" style="left:60%;width:40%" id="tl-rest">REST</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px">
+        <span id="tl-label-start">07:00</span>
+        <span id="tl-label-mid">21:00</span>
+        <span id="tl-label-end">07:00+1</span>
+      </div>
+    </div>
+
+    <!-- CAR 07-02A ref table -->
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">CAR 07-02A 速查表</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <tr style="color:var(--text3);text-align:left">
+            <th style="padding:5px 6px;border-bottom:1px solid var(--border)">配置</th>
+            <th style="padding:5px 6px;border-bottom:1px solid var(--border)">Max FDP</th>
+            <th style="padding:5px 6px;border-bottom:1px solid var(--border)">Max 飛時</th>
+            <th style="padding:5px 6px;border-bottom:1px solid var(--border)">最低休息</th>
+          </tr>
+          <tr>
+            <td style="padding:6px;color:var(--text)">2P 單組</td>
+            <td style="padding:6px;font-weight:700;color:var(--green)">14h</td>
+            <td style="padding:6px;font-weight:700">10h</td>
+            <td style="padding:6px;color:var(--text2)">10h</td>
+          </tr>
+          <tr>
+            <td style="padding:6px;color:var(--text)">3P 加強</td>
+            <td style="padding:6px;font-weight:700;color:var(--blue)">18h</td>
+            <td style="padding:6px;font-weight:700">12h</td>
+            <td style="padding:6px;color:var(--text2)">10h</td>
+          </tr>
+          <tr>
+            <td style="padding:6px;color:var(--text)">4P 雙組</td>
+            <td style="padding:6px;font-weight:700;color:var(--accent)">24h</td>
+            <td style="padding:6px;font-weight:700">12h</td>
+            <td style="padding:6px;color:var(--text2)">10h</td>
+          </tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td colspan="4" style="padding:6px;color:var(--text3);font-size:11px">
+              7日最低休息：30h｜連續WOCL 2天 → 34h｜3天 → 54h
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PA ══ -->
+  <div class="tool-panel" id="tool-pa">
+    <div class="cred-info"><span class="tag">RAB Rev.10</span>§ 8.1 廣播詞 · 離線可用 · <span style="color:#93c5fd;font-weight:700">■</span> OFP自動帶入 <span style="color:#fbbf24;font-weight:700">■</span> 手動填入（點擊修改）</div>
+
+    <!-- 機長姓名 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--text2);flex-shrink:0;min-width:48px">機長姓名</span>
+      <input id="pa-cap" class="form-input" style="flex:1;font-weight:700;font-size:15px;height:40px;background:transparent;border:none;padding:0;color:var(--text)" placeholder="Full Name（點此輸入）" oninput="renderPAContent()">
+    </div>
+
+    <!-- 9 型廣播按鈕 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px">
+      <button class="pa9-btn active" onclick="selPA(this,'welcome')"><div class="pa9-icon">✈️</div><div class="pa9-name">Welcome</div><div class="pa9-sub">歡迎<span class="pa9-req">必要</span></div></button>
+      <button class="pa9-btn" onclick="selPA(this,'delay')"><div class="pa9-icon">⏱</div><div class="pa9-name">Gnd Delay</div><div class="pa9-sub">地面延誤</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'descent')"><div class="pa9-icon">🛬</div><div class="pa9-name">Descent</div><div class="pa9-sub">下降前<span class="pa9-req">必要</span></div></button>
+      <button class="pa9-btn" onclick="selPA(this,'turb')"><div class="pa9-icon">🌊</div><div class="pa9-name">Turbulence</div><div class="pa9-sub">亂流</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'ice')"><div class="pa9-icon">❄️</div><div class="pa9-name">De/Anti-Ice</div><div class="pa9-sub">除防冰</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'ga')"><div class="pa9-icon">🔄</div><div class="pa9-name">Missed App</div><div class="pa9-sub">重飛</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'divert')"><div class="pa9-icon">🛑</div><div class="pa9-name">Diversion</div><div class="pa9-sub">備降</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'cat')"><div class="pa9-icon">⚡</div><div class="pa9-name">Unexp. CAT</div><div class="pa9-sub">突發亂流</div></button>
+      <button class="pa9-btn" onclick="selPA(this,'unruly')"><div class="pa9-icon">⚠️</div><div class="pa9-name">Final Warn</div><div class="pa9-sub">最終警告</div></button>
+    </div>
+
+    <!-- 說明提示 -->
+    <div id="pa-note" style="font-size:11px;color:var(--text3);background:var(--surface);border-radius:8px;padding:7px 12px;margin-bottom:10px;line-height:1.6;display:none"></div>
+
+    <!-- 廣播內容 -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <!-- Descent 專用填寫區（其他 PA 隱藏） -->
+      <div id="pa-inputs" style="display:none;padding:14px;background:rgba(96,165,250,.04);border-bottom:1px solid var(--border)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:rgba(96,165,250,.07);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:#60a5fa;letter-spacing:.5px">🇬🇧 ENGLISH</span>
+        <button class="btn btn-ghost btn-sm" onclick="copyPALang('en',this)" style="font-size:12px">📋 複製</button>
+      </div>
+      <div id="pa-en" style="padding:14px;font-size:14px;line-height:2.1;color:var(--text);min-height:60px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:rgba(34,197,94,.07);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+        <span style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:.5px">🇹🇼 中文參考</span>
+        <button class="btn btn-ghost btn-sm" onclick="copyPALang('zh',this)" style="font-size:12px">📋 複製</button>
+      </div>
+      <div id="pa-zh" style="padding:14px;font-size:14px;line-height:2.1;color:var(--text);min-height:60px"></div>
+    </div>
+  </div>
+
+    <!-- ══ CALC ══ -->
+  <div class="tool-panel" id="tool-calc">
+    <div class="cred-info"><span class="tag">本地</span>所有計算在裝置上執行，離線可用。</div>
+
+    <div class="section-label">燃油換算</div>
+    <div class="card">
+      <div class="calc-row">
+        <input class="calc-input" id="fuel-kg" placeholder="kg" type="number" oninput="calcFuel()">
+        <span class="calc-unit">→ L</span>
+        <div class="calc-result" id="fuel-liter">—</div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:-4px 0 8px 4px">A321 (密度 0.800 kg/L)</div>
+      <div class="calc-row">
+        <input class="calc-input" id="fuel-kg2" placeholder="kg" type="number" oninput="calcFuelLbs()">
+        <span class="calc-unit">→ lbs</span>
+        <div class="calc-result" id="fuel-lbs">—</div>
+      </div>
+    </div>
+
+    <div class="section-label">橫風分量</div>
+    <div class="card">
+      <div class="grid2" style="gap:8px;margin-bottom:8px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">風向 (°)</label>
+          <input class="form-input" id="xw-dir" placeholder="070" type="number" min="0" max="360">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">風速 (kt)</label>
+          <input class="form-input" id="xw-spd" placeholder="15" type="number" min="0">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">跑道方向 (°)</label>
+        <input class="form-input" id="xw-rwy" placeholder="050" type="number" min="0" max="360">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="calcXwind()">計算</button>
+      <div class="result-box" style="margin-top:10px">
+        <div class="fdp-result-row">
+          <span class="fdp-label">橫風分量</span>
+          <span class="fdp-val" id="xw-result">—</span>
+        </div>
+        <div class="fdp-result-row">
+          <span class="fdp-label">順/逆風</span>
+          <span class="fdp-val" id="hw-result" style="color:var(--blue)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">ICAO 低溫修正</div>
+    <div class="card">
+      <div class="grid2" style="gap:8px;margin-bottom:10px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">機場溫度 (°C)</label>
+          <input class="form-input" id="cold-temp" placeholder="-15" type="number">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">指令高度 (ft)</label>
+          <input class="form-input" id="cold-alt" placeholder="2500" type="number">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">機場標高 (ft)</label>
+        <input class="form-input" id="cold-elev" placeholder="0" type="number">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="calcColdTemp()">計算修正量</button>
+      <div class="result-box" style="margin-top:10px">
+        <div class="fdp-result-row">
+          <span class="fdp-label">修正量</span>
+          <span class="fdp-val" id="cold-result">—</span>
+        </div>
+        <div class="fdp-result-row">
+          <span class="fdp-label">修正後高度</span>
+          <span class="fdp-val" id="cold-corrected" style="color:var(--blue)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label">單位換算</div>
+    <div class="card">
+      <div class="calc-row">
+        <input class="calc-input" placeholder="°C" type="number" oninput="this.nextElementSibling.nextElementSibling.textContent=(+this.value*1.8+32).toFixed(1)||'—'">
+        <span class="calc-unit">°C→°F</span>
+        <div class="calc-result">—</div>
+      </div>
+      <div class="calc-row">
+        <input class="calc-input" placeholder="°F" type="number" oninput="this.nextElementSibling.nextElementSibling.textContent=((+this.value-32)/1.8).toFixed(1)||'—'">
+        <span class="calc-unit">°F→°C</span>
+        <div class="calc-result">—</div>
+      </div>
+      <div class="calc-row">
+        <input class="calc-input" placeholder="hPa" type="number" oninput="this.nextElementSibling.nextElementSibling.textContent=(+this.value*0.02953).toFixed(2)||'—'">
+        <span class="calc-unit">→ inHg</span>
+        <div class="calc-result">—</div>
+      </div>
+      <div class="calc-row">
+        <input class="calc-input" placeholder="NM" type="number" oninput="this.nextElementSibling.nextElementSibling.textContent=(+this.value*1.852).toFixed(1)||'—'">
+        <span class="calc-unit">→ km</span>
+        <div class="calc-result">—</div>
+      </div>
+      <div class="calc-row">
+        <input class="calc-input" placeholder="kg" type="number" oninput="this.nextElementSibling.nextElementSibling.textContent=(+this.value*2.20462).toFixed(0)||'—'">
+        <span class="calc-unit">→ lbs</span>
+        <div class="calc-result">—</div>
+      </div>
+    </div>
+
+    <div class="section-label">Curfew 倒數</div>
+    <div class="card">
+      <div class="curfew-card">
+        <div>
+          <div class="curfew-airport">RCTP 桃園</div>
+          <div class="curfew-label">宵禁 23:00–07:00 UTC</div>
+        </div>
+        <div style="text-align:right">
+          <div class="curfew-time" id="curfew-time">--:--</div>
+          <div class="curfew-sub" id="curfew-sub">計算中</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OVERTIME ══ -->
+  <div class="tool-panel" id="tool-ot">
+    <div class="cred-info"><span class="tag">本地</span>輸入表定與實際時間，自動計算是否超時。</div>
+    <div class="card">
+      <div class="grid2" style="gap:8px;margin-bottom:10px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">表定關艙 (UTC)</label>
+          <input class="form-input" id="ot-sched-off" type="time" onchange="calcOT()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">表定落地 (UTC)</label>
+          <input class="form-input" id="ot-sched-on" type="time" onchange="calcOT()">
+        </div>
+      </div>
+      <div class="grid2" style="gap:8px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">實際關艙 (UTC)</label>
+          <input class="form-input" id="ot-act-off" type="time" onchange="calcOT()">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">實際落地 (UTC)</label>
+          <input class="form-input" id="ot-act-on" type="time" onchange="calcOT()">
+        </div>
+      </div>
+    </div>
+    <div class="result-box">
+      <div class="fdp-result-row">
+        <span class="fdp-label">關艙延誤</span>
+        <span class="fdp-val" id="ot-delay">—</span>
+      </div>
+      <div class="fdp-result-row">
+        <span class="fdp-label">加班門檻（落地）</span>
+        <span class="fdp-val" style="color:var(--text2)" id="ot-threshold">—</span>
+      </div>
+      <div class="fdp-result-row">
+        <span class="fdp-label">加班狀態</span>
+        <span class="fdp-val" id="ot-status" style="color:var(--text2)">輸入時間後確認</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ LINKS ══ -->
+  <div class="tool-panel" id="tool-links">
+    <div class="cred-info"><span class="tag">外部連結</span>各系統帳密<strong style="color:var(--accent)">完全獨立</strong>，點擊後跳至各系統自行登入。</div>
+
+    <div class="section-label">🔑 需要帳密</div>
+    <div class="links-grid" style="margin-bottom:12px">
+      <a class="link-card" href="https://sflight.starlux-airlines.com" target="_blank">
+        <div class="link-icon">🌟</div>
+        <div class="link-name">JX Pilot Space</div>
+        <div class="link-desc" style="color:var(--yellow)">公司 SSO 帳號</div>
+      </a>
+      <a class="link-card" href="https://lido.starlux-airlines.com" target="_blank">
+        <div class="link-icon">📋</div>
+        <div class="link-name">LIDO Flight</div>
+        <div class="link-desc" style="color:var(--yellow)">LIDO 專屬帳號</div>
+      </a>
+      <a class="link-card" href="https://sjxelb.starlux-airlines.com" target="_blank">
+        <div class="link-icon">🛩</div>
+        <div class="link-name">SJX ELB Fleet</div>
+        <div class="link-desc" style="color:var(--yellow)">ELB 專屬帳號</div>
+      </a>
+      <a class="link-card" href="https://flight.weathernews.com" target="_blank">
+        <div class="link-icon">🌤</div>
+        <div class="link-name">WNI FPL Editor</div>
+        <div class="link-desc" style="color:var(--yellow)">Weathernews 帳號</div>
+      </a>
+    </div>
+
+    <div class="section-label">✅ 免登入</div>
+    <div class="links-grid">
+      <a class="link-card" href="https://tono2.com" target="_blank">
+        <div class="link-icon">🇯🇵</div>
+        <div class="link-name">Tono2 天氣</div>
+        <div class="link-desc">日本航空氣象</div>
+      </a>
+      <a class="link-card" href="https://skyinfomaps.com" target="_blank">
+        <div class="link-icon">🗺</div>
+        <div class="link-name">NOTAM 地圖</div>
+        <div class="link-desc">Skyinfo 日本</div>
+      </a>
+      <a class="link-card" href="https://crew-sync.onrender.com/main" target="_blank">
+        <div class="link-icon">📡</div>
+        <div class="link-name">CrewSync</div>
+        <div class="link-desc">班表同步 / 好友</div>
+      </a>
+      <a class="link-card" href="https://www.flightradar24.com" target="_blank">
+        <div class="link-icon">✈️</div>
+        <div class="link-name">FR24 Live</div>
+        <div class="link-desc">即時航班追蹤</div>
+      </a>
+      <a class="link-card" href="https://zihchi.github.io/briefing-package/" target="_blank">
+        <div class="link-icon">📦</div>
+        <div class="link-name">簡報箱</div>
+        <div class="link-desc">同事工具參考</div>
+      </a>
+      <a class="link-card" href="https://www.notams.faa.gov/dinsQueryWeb/" target="_blank">
+        <div class="link-icon">🚧</div>
+        <div class="link-name">FAA NOTAM</div>
+        <div class="link-desc">國際 NOTAM 查詢</div>
+      </a>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<nav class="tabbar">
+  <a class="tab" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab active" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<script>
+// ── UTC Clock ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Tool tabs ─────────────────────────────────────────────
+function setTool(btn, name) {
+  document.querySelectorAll('.tool-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tool-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tool-' + name).classList.add('active');
+}
+
+// ── FDP Calc ──────────────────────────────────────────────
+const FDP_MAX = { 2: 14, 3: 18, 4: 24 };
+const FT_MAX  = { 2: 10, 3: 12, 4: 12 };
+
+function calcFDP() {
+  const config = parseInt(document.getElementById('fdp-config').value);
+  const startStr = document.getElementById('fdp-start').value;
+  const bunk = parseInt(document.getElementById('fdp-bunk').value);
+  const cmd  = parseInt(document.getElementById('fdp-cmd').value);
+  if (!startStr) return;
+
+  const [sh, sm] = startStr.split(':').map(Number);
+  const startMin = sh * 60 + sm;
+  const maxFDP = FDP_MAX[config] + bunk + cmd;
+  const maxFT  = FT_MAX[config];
+
+  const fdpEndMin = startMin + maxFDP * 60;
+  const ftEndMin  = startMin + maxFT  * 60;
+  const restMin   = fdpEndMin + 10 * 60; // minimum 10h rest
+
+  const toTime = m => {
+    const day = Math.floor(m / 1440);
+    const hh = Math.floor((m % 1440) / 60);
+    const mm = m % 60;
+    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} UTC${day > 0 ? '+'+day : ''}`;
+  };
+
+  document.getElementById('fdp-max-end').textContent = toTime(fdpEndMin);
+  document.getElementById('fdp-ft-end').textContent  = toTime(ftEndMin);
+  document.getElementById('fdp-rest').textContent    = '10h 00m';
+  document.getElementById('tl-label-start').textContent = startStr;
+  document.getElementById('tl-label-mid').textContent   = toTime(fdpEndMin).split(' ')[0];
+  document.getElementById('tl-label-end').textContent   = toTime(restMin).replace(' UTC','\nUTC');
+
+  // Timeline segments (24h window)
+  const total = 24 * 60;
+  const fdpW  = Math.min((maxFDP / 24 * 100), 70);
+  const restW = Math.min((10 / 24 * 100), 30);
+  document.getElementById('tl-fdp').style.width  = fdpW + '%';
+  document.getElementById('tl-rest').style.left  = fdpW + '%';
+  document.getElementById('tl-rest').style.width = restW + '%';
+}
+calcFDP();
+
+// ── PA ────────────────────────────────────────────────────
+let paType = 'welcome';
+let paV = {};
+
+// Timezone offsets (UTC+X) for common Starlux destinations
+const TZ_MAP = {
+  RCTP:8, RCSS:8, RCFG:8, RCKH:8,              // Taiwan
+  RJTT:9, RJBB:9, RJFF:9, ROAH:9, RJCC:9,      // Japan
+  RJOO:9, RJNS:9, RJGG:9, RJSN:9, RJOA:9,
+  RKSI:9, RKSS:9,                                // Korea
+  WMKK:8, WBKK:8,                               // Malaysia
+  VVTS:7, VTBS:7, VTBD:7,                       // Vietnam / Thailand
+  RPLL:8, RPVM:8,                               // Philippines
+  WSSS:8,                                        // Singapore
+  WADD:8, WRRR:8,                               // Bali
+  VHHH:8,                                        // Hong Kong
+  ZSPD:8, ZGGG:8, ZBAA:8, ZUUU:8,              // China
+};
+
+function initPAVars() {
+  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  if (!d) { paV = {}; return; }
+  const o = d.ofp || {}, t = d.times || {};
+
+  // Extract cruise FL from ATS route (matches brief.html logic)
+  function extractFL(route) {
+    if (!route) return null;
+    const m = route.match(/[NMK]\d{3,4}[FA](\d{3})/);
+    return m ? 'FL' + m[1] : null;
+  }
+  const cruiseAlt = o.cruiseAlt || extractFL(d.atsRoute) || extractFL(d.flightRoute) || '';
+  const flt  = d.flightNumber || ('JX' + (o.flight || ''));
+  const dest = d.dest || o.dest || '';
+  const ete  = t.ete || o.ete || '';
+  const sta  = t.staLocal || o.staLocal || '';
+
+  paV = {
+    flt:    flt   || '',
+    dest:   dest  || '',
+    eteEN:  pa_eteEN(ete),
+    eteZH:  pa_eteZH(ete),
+    alt:    pa_flFeet(cruiseAlt),
+    staRaw: sta,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function pa_eteEN(e) {
+  if (!e) return '';
+  const m = e.match(/(\d+):(\d+)/); if (!m) return e;
+  const h=+m[1], mm=+m[2], p=[];
+  if (h)  p.push(`${h} hour${h>1?'s':''}`);
+  if (mm) p.push(`${String(mm).padStart(2,'0')} minutes`);
+  return p.join(' and ');
+}
+function pa_eteZH(e) {
+  if (!e) return '';
+  const m = e.match(/(\d+):(\d+)/); if (!m) return e;
+  const h=+m[1], mm=+m[2], p=[];
+  if (h)  p.push(`${h} 小時`);
+  if (mm) p.push(`${String(mm).padStart(2,'0')} 分`);
+  return p.join('');
+}
+function pa_flFeet(fl) {
+  if (!fl) return '';
+  const m = fl.match(/FL(\d+)/i);
+  return m ? (parseInt(m[1])*100).toLocaleString() : fl;
+}
+// Convert raw STA "1530L" / "15:30" → "15:30"
+function pa_to24hm(raw) {
+  if (!raw) return '';
+  const s = raw.replace(/L$/, '').replace(':', '');
+  if (/^\d{4}$/.test(s)) return s.slice(0,2) + ':' + s.slice(2);
+  if (/^\d{3}$/.test(s)) return '0' + s[0] + ':' + s.slice(1);
+  return '';
+}
+// Get destination local time (UTC + offset)
+function getDestLocal(icao) {
+  const offset = TZ_MAP[icao] || 8;
+  const ms = Date.now() + offset * 3600000;
+  const ld = new Date(ms);
+  return {
+    time:  String(ld.getUTCHours()).padStart(2,'0') + ':' + String(ld.getUTCMinutes()).padStart(2,'0'),
+    date:  ld.toISOString().slice(0,10),
+    dow:   ld.getUTCDay(),
+    d:     ld.getUTCDate(),
+    mo:    ld.getUTCMonth(),
+    yr:    ld.getUTCFullYear(),
+  };
+}
+// 24h HH:MM → 12h AM/PM (for English PA)
+function fmt12h(t) {
+  if (!t || t==='--:--') return '—';
+  const [h, m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'p.m.' : 'a.m.';
+  const h12 = h > 12 ? h-12 : h === 0 ? 12 : h;
+  return `${h12}:${String(m).padStart(2,'0')} ${ap}`;
+}
+
+// ── Span factories ────────────────────────────────────────
+// Blue = auto-filled from OFP
+function pA(key, fallback) {
+  const v = paV[key] || fallback || '___';
+  return `<span class="pa-auto" contenteditable="true">${v}</span>`;
+}
+// Amber = manual fill; optional syncKey syncs across EN/ZH
+function pF(ph, syncKey) {
+  const ds = syncKey ? ` data-sync="${syncKey}"` : '';
+  return `<span class="pa-fill" contenteditable="true"${ds}>${ph}</span>`;
+}
+// Sub-section label for multi-part PAs
+function pSub(label) {
+  return `<br><span style="font-size:11px;font-weight:700;color:var(--text3);display:inline-block;margin:10px 0 4px;border-left:3px solid var(--border);padding-left:8px">${label}</span><br>`;
+}
+
+// ── PA Templates ──────────────────────────────────────────
+function getPAContent(id) {
+  const cap = (document.getElementById('pa-cap').value || '').trim();
+  const capSpan = cap
+    ? `<span class="pa-auto" contenteditable="true">${cap}</span>`
+    : `<span class="pa-fill" contenteditable="true">（機長姓名）</span>`;
+
+  const NOTE = {
+    welcome: '所有旅客登機完畢後，CIC 通知機長進行廣播。',
+    delay:   '出發前延誤超過 15 分鐘時廣播。',
+    descent: 'TOD 前約 10 分鐘廣播。請提前告知 CIC：TOD 時間、ETA 及目的地天氣。',
+    turb:    '接近或遭遇亂流時使用（視工作負荷而定）。',
+    ice:     '',
+    ga:      '平飛至重飛高度、完成起飛後檢查表後，於下次進場前廣播。',
+    divert:  '',
+    cat:     '遭遇預料外中度／嚴重亂流後廣播。',
+    unruly:  '',
+  };
+
+  // Descent: special — rendered via renderDescentForm()
+  if (id === 'descent') {
+    return { note: NOTE.descent, special: 'descent' };
+  }
+
+  const T = {
+    welcome: {
+      en: `"Hello everyone, this is Captain ${capSpan} speaking. On behalf of [${pF('the cockpit crew')} / all the crew], welcome onboard STARLUX flight number ${pA('flt')} to ${pA('dest')}. We should be ready for departure in [${pF('XX','wmin')} minutes / just a few minutes]. Our flight time is ${pA('eteEN','__ hrs __ min')}, with an initial cruising altitude of ${pA('alt')} feet. Once again, please make yourself comfortable and enjoy the flight with us. Thank you."`,
+      zh: `「各位旅客您好，我是機長 ${capSpan}。謹代表【${pF('駕艙組員')}／全體空勤組員】，歡迎您搭乘星宇航空 ${pA('flt')} 班機前往 ${pA('dest')}。我們預計 ${pF('XX','wmin')} 分鐘後出發。本次飛行時間約 ${pA('eteZH','__小時__分')}，初始巡航高度 ${pA('alt')} 英呎。再次誠摯歡迎您搭乘，祝您旅途愉快，謝謝。」`,
+    },
+    delay: {
+      en: `"Hello everyone, this is your captain speaking. Due to ${pF('（延誤原因）')}, we might be delayed up to ${pF('XX','dmin')} minutes before takeoff. I will keep you updated if longer delay happens. Thank you for your patient."`,
+      zh: `「各位旅客您好，我是您的機長。由於 ${pF('（延誤原因）')}，本班機可能在起飛前延誤約 ${pF('XX','dmin')} 分鐘。若延誤情況有所變動，我將隨時更新相關資訊。感謝您的耐心等候。」`,
+    },
+    turb: {
+      en: pSub('i. 接近已知／預報亂流區') +
+        `"Hello everyone, this is your Captain speaking. We will soon be flying through an area with light to moderate turbulence. We have already made [${pF('changes to our route and altitude')} / deviations] to provide you with the smoothest flight possible. To ensure your safety, please stay in your seats and fasten your seat belt."` +
+        pSub('ii. 請客艙組員就座') +
+        `"For the safety of the cabin crew, I have asked them to stop the inflight service, take their seats, and remain seated, until we have passed through this area. We apologize for any inconvenience. The inflight service will resume as soon as flight conditions permit.<br><br>We expect that these conditions to last for approximately ${pF('OO','tmin')} minutes.<br><br>Your cooperation and understanding are always appreciated. Thank you."`,
+      zh: pSub('i. 接近已知／預報亂流區') +
+        `「各位旅客您好，我是您的機長。我們即將飛越一片輕度至中度亂流區。我們已採取【${pF('航路及高度調整')}／偏航】措施，盡力提供最平穩的飛行體驗。為確保您的安全，請回到座位並繫好安全帶。」` +
+        pSub('ii. 請客艙組員就座') +
+        `「為確保空服員安全，我已請他們暫停客艙服務，回到座位並保持就座，直到通過此亂流區。造成不便，敬請見諒。一旦飛行條件許可，客艙服務將立即恢復。<br><br>我們預計此狀況將持續約 ${pF('OO','tmin')} 分鐘（若可預估）。<br><br>感謝您的配合與理解，謝謝。」`,
+    },
+    ice: {
+      en: `"Hello everyone, welcome on board. This is your Captain speaking. Today we must complete a procedure to protect the aircraft against the build-up of ice.<br><br>And we will be on ground for ${pF('OO','imin')} minutes.<br><br>This will involve the spraying of a fluid on the aircraft; there may be some noise during this process and, possibly, a slightly unusual smell inside of the cabin. The procedure is routine and should be completed in a few minutes. Thank you for your attention."`,
+      zh: `「各位旅客您好，歡迎登機。我是您的機長。今天我們需要完成一項飛機防除冰程序。<br><br>我們將在地面停留約 ${pF('OO','imin')} 分鐘。<br><br>過程中將對飛機噴灑防除冰液，期間可能會有些聲音，客艙內也可能有些許特殊氣味。此程序為例行作業，應在幾分鐘內完成。感謝您的注意。」`,
+    },
+    ga: {
+      en: `"May we have your attention. This is your Captain speaking. We were unable to complete our approach to landing at ${pA('dest')}. We have just completed a routine go-around procedure and, shortly, we shall be starting another approach to land. We will be landing in ${pF('OO','gamin')} minutes. Thank you for your attention."`,
+      zh: `「請注意，我是您的機長。我們未能完成在 ${pA('dest')} 機場的降落進場。我們剛完成一次例行重飛程序，即將重新進行進場降落。預計 ${pF('OO','gamin')} 分鐘後降落。感謝您的注意。」`,
+    },
+    divert: {
+      en: `"May we have your attention. This is your Captain speaking. The weather at ${pA('dest')} airport is below landing minimum, we are unable to land at this moment. We shall divert to ${pF('（備降機場）')} airport, and we can wait for the weather at ${pA('dest')} airport to improve."`,
+      zh: `「請注意，我是您的機長。目的地 ${pA('dest')} 機場天氣低於降落最低標準，我們目前無法降落。我們將轉降至 ${pF('（備降機場）')} 機場，並等待 ${pA('dest')} 機場天氣改善。」`,
+    },
+    cat: {
+      en: pSub('i. 正常情況（無傷亡）') +
+        `"Hello everyone, this is your Captain speaking. We have just encountered an area of [${pF('moderate')} / severe] Clear Air Turbulence. The aircraft condition is safe, with all systems operating normally. This type of turbulence cannot be detected with our system and was unexpected. We appreciate your cooperation to stay in your seats with seatbelt fasten until the seatbelt sign is turned off."` +
+        pSub('ii. 如有客艙損壞或傷亡') +
+        `"The cabin crew are now making every effort to safeguard the condition of everyone onboard. If you need assistance, the crew will help you as soon as possible. We appreciate your cooperation to stay in your seats until the seatbelt sign is turned off. After an assessment of conditions onboard are completed, I will provide you with more information regarding the status of the flight. Your cooperation and understanding are appreciated to ensure the safety of all onboard. Thank you."` +
+        pSub('iii. 後續仍預計有輕度亂流（可選接續）') +
+        `"However, it is possible that we may experience some light turbulence [later / during descent]. I will provide you with an update before we start our descent. We invite you to relax and enjoy the remainder of the flight to ${pA('dest')}. Thank you."`,
+      zh: pSub('i. 正常情況（無傷亡）') +
+        `「各位旅客您好，我是您的機長。我們剛遭遇一片【${pF('中度')}／嚴重】晴空亂流。飛機狀況安全，所有系統運作正常。此類亂流無法被我們的儀器事先偵測，屬突發狀況。感謝您配合留在座位並繫好安全帶，直到安全帶指示燈熄滅。」` +
+        pSub('ii. 如有客艙損壞或傷亡') +
+        `「客艙組員正全力確保機上所有人員安全。若您需要協助，組員將盡快前往協助。感謝您配合留在座位，直到安全帶指示燈熄滅。完成機上狀況評估後，我將提供更多關於本次航班的最新資訊。感謝您的配合與理解，謝謝。」` +
+        pSub('iii. 後續仍預計有輕度亂流') +
+        `「然而，在【之後的飛行途中／下降過程中】仍可能出現些許輕度亂流。我將在開始下降前再次更新資訊。感謝您放鬆享受前往 ${pA('dest')} 的剩餘旅程，謝謝。」`,
+    },
+    unruly: {
+      en: `"This is your captain speaking. The passenger at ${pF('（Seat No.）')}, we have already warned you about your unacceptable behavior and requested you to moderate it.<br><br>This is the FINAL WARNING that your unruly behavior has violated the above laws and regulations. If the unruly behavior remains, it may be committed a criminal offence, and you may be restrained and handed over to the aviation security authorities. Punishment may be imposed against you, including but not limited to imprisonment, detention or monetary fine.<br><br>If there is any diversion, stop over or delay caused by your unruly behavior, STARLUX Airlines shall be entitled to request you for any and all losses, expenses and damages incurred from such circumstances. PLEASE NOW COOPERATE WITH OUR CREW MEMBERS IN AN AMICABLE WAY."`,
+      zh: `各位女士、各位先生，這裡是機長廣播，我現在鄭重的對座位在 ${pF('XX')}（及其附近）的乘客提出警告，您現在的行為已經嚴重的違反了中華民國民用航空法。<br><br>現在請您立即停止滋擾他人及破壞客艙安寧的行為，並依照空服人員的指示配合執行！<br><br>若因您的行為而造成飛機的延誤、轉降或公司任何損失，公司將依法向您個人提出求償！<br><br>感謝您們的理解與配合，謝謝！`,
+    },
+  };
+
+  return { note: NOTE[id] || '', en: (T[id]||{}).en || '—', zh: (T[id]||{}).zh || '—' };
+}
+
+// ── Descent special rendering ─────────────────────────────
+const INP_STYLE = 'width:100%;height:44px;font-size:16px;font-weight:700;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:0 12px;-webkit-appearance:none;appearance:none;box-sizing:border-box';
+const SEL_STYLE = INP_STYLE + ';background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\'%3E%3Cpath fill=\'%2394a3b8\' d=\'M6 8L0 0h12z\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px';
+
+const WX_OPTIONS = [
+  ['clear skies','晴天','☀️'],
+  ['partly cloudy','多雲時晴','⛅'],
+  ['overcast','陰天','☁️'],
+  ['light rain','小雨','🌦'],
+  ['moderate rain','中雨','🌧'],
+  ['heavy rain','大雨','⛈'],
+  ['thunderstorm','雷陣雨','⛈'],
+  ['shower','陣雨','🌦'],
+  ['light snow','小雪','🌨'],
+  ['snow','下雪','❄️'],
+  ['heavy snow','大雪','❄️'],
+  ['fog','濃霧','🌫'],
+  ['mist','薄霧','🌫'],
+  ['haze','煙霾','🌬'],
+  ['windy','強風','💨'],
+];
+
+function renderDescentForm() {
+  const inpDiv = document.getElementById('pa-inputs');
+  inpDiv.style.display = 'block';
+
+  const loc = getDestLocal(paV.dest || 'RCTP');
+  const etaHM = pa_to24hm(paV.staRaw) || '';
+
+  const wxOpts = WX_OPTIONS.map(([en, zh, ic]) =>
+    `<option value="${en}|${zh}">${ic} ${zh} (${en})</option>`
+  ).join('');
+
+  inpDiv.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase">🛬 Descent PA 填寫區（廣播稿即時更新）</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">✈️ ETA 降落時間 <span style="font-size:9px;color:#93c5fd">← OFP</span></div>
+        <input type="time" id="pd-eta" style="${INP_STYLE}" value="${etaHM}" onchange="updateDescentPA()" oninput="updateDescentPA()">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">🕐 目前當地時間 <span style="font-size:9px;color:#22c55e">← 自動</span></div>
+        <input type="time" id="pd-now" style="${INP_STYLE}" value="${loc.time}" onchange="updateDescentPA()" oninput="updateDescentPA()">
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:5px">📅 當地日期 <span style="font-size:9px;color:#22c55e">← 自動</span></div>
+      <input type="date" id="pd-date" style="${INP_STYLE};font-size:15px" value="${loc.date}" onchange="updateDescentPA()">
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:5px">🌤 天氣狀況</div>
+      <select id="pd-wx" style="${SEL_STYLE}" onchange="updateDescentPA()">${wxOpts}</select>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:5px">🌡 地面氣溫</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" id="pd-tc" placeholder="—" style="width:90px;height:44px;font-size:20px;font-weight:800;text-align:center;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--text)" oninput="updateDescentPA()">
+        <span style="font-size:15px;color:var(--text2);font-weight:600">°C</span>
+        <span style="font-size:13px;color:var(--text3)">→</span>
+        <span id="pd-tf" style="font-size:22px;font-weight:800;color:#60a5fa">—</span>
+        <span style="font-size:15px;color:var(--text2);font-weight:600">°F</span>
+      </div>
+    </div>`;
+
+  updateDescentPA();
+}
+
+function updateDescentPA() {
+  const eta24  = (document.getElementById('pd-eta')?.value)  || '--:--';
+  const now24  = (document.getElementById('pd-now')?.value)  || '--:--';
+  const dateSt = (document.getElementById('pd-date')?.value) || '';
+  const wxVal  = (document.getElementById('pd-wx')?.value)   || 'clear skies|晴天';
+  const tcRaw  = document.getElementById('pd-tc')?.value;
+  const tfEl   = document.getElementById('pd-tf');
+  const tc = (tcRaw !== '' && tcRaw !== undefined && tcRaw !== null) ? parseFloat(tcRaw) : null;
+  const tf = tc !== null && !isNaN(tc) ? Math.round(tc * 9/5 + 32) : null;
+  if (tfEl) tfEl.textContent = tf !== null ? tf : '—';
+
+  const [wxEN, wxZH] = wxVal.split('|');
+
+  // Format date
+  const DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MONS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_ZH = ['日','一','二','三','四','五','六'];
+  let dateEN = '—', dateZH = '—';
+  if (dateSt) {
+    const dObj = new Date(dateSt + 'T12:00:00Z');
+    dateEN = `${DAYS_EN[dObj.getUTCDay()]}, ${dObj.getUTCDate()} ${MONS_EN[dObj.getUTCMonth()]} ${dObj.getUTCFullYear()}`;
+    dateZH = `${dObj.getUTCMonth()+1}月${dObj.getUTCDate()}日（星期${DAYS_ZH[dObj.getUTCDay()]}）`;
+  }
+
+  const dest = paV.dest || '___';
+  const tempEN = tc !== null ? `${tc} degree${tc!==1?'s':''} Celsius, which is ${tf} degree${tf!==1?'s':''} Fahrenheit` : '[temperature]';
+  const tempZH = tc !== null ? `攝氏 ${tc} 度（華氏 ${tf} 度）` : '[溫度]';
+
+  document.getElementById('pa-en').innerHTML =
+    `"Hello everyone, this is your captain speaking.<br><br>` +
+    `We are approaching <strong>${dest}</strong> and expect to start our descent in 10 minutes. ` +
+    `We estimate landing at <strong>${fmt12h(eta24)}</strong>. ` +
+    `The current local time in <strong>${dest}</strong> is <strong>${fmt12h(now24)}</strong> on ${dateEN}.<br><br>` +
+    `The present weather at the airport is <strong>${wxEN}</strong> with a temperature of <strong>${tempEN}</strong>.<br><br>` +
+    `We certainly hope that you have enjoyed the flight with us, and we look forward to having you onboard another STARLUX flight again very soon. ` +
+    `Thank you, and we wish you all a very pleasant journey."`;
+
+  document.getElementById('pa-zh').innerHTML =
+    `「各位旅客您好，我是您的機長。我們正接近 <strong>${dest}</strong>，預計約 10 分鐘後開始下降。` +
+    `預計降落時間為當地時間 <strong>${eta24}</strong>。` +
+    `目前 <strong>${dest}</strong> 當地時間 <strong>${now24}</strong>，日期 ${dateZH}。<br><br>` +
+    `目的地機場目前<strong>${wxZH}</strong>，地面溫度 <strong>${tempZH}</strong>。<br><br>` +
+    `感謝您選擇星宇航空，期待再次為您服務。祝您旅途愉快，謝謝。」`;
+}
+
+// ── Core rendering ────────────────────────────────────────
+function selPA(btn, id) {
+  document.querySelectorAll('.pa9-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  paType = id;
+  // Hide Descent form for all other types
+  const inpDiv = document.getElementById('pa-inputs');
+  if (inpDiv && id !== 'descent') inpDiv.style.display = 'none';
+  renderPAContent();
+}
+
+function renderPAContent() {
+  initPAVars();
+  const content = getPAContent(paType);
+
+  const noteEl = document.getElementById('pa-note');
+  noteEl.style.display = content.note ? 'block' : 'none';
+  if (content.note) noteEl.textContent = content.note;
+
+  if (content.special === 'descent') {
+    renderDescentForm();
+    return;
+  }
+
+  document.getElementById('pa-en').innerHTML = content.en;
+  document.getElementById('pa-zh').innerHTML = content.zh;
+}
+
+function copyPALang(lang, btn) {
+  const el = document.getElementById('pa-' + lang);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✅ 複製成功';
+    setTimeout(() => btn.textContent = orig, 2000);
+  }).catch(() => {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    document.execCommand('copy'); s.removeAllRanges();
+  });
+}
+
+// ── Initialise ────────────────────────────────────────────
+(function paInit() {
+  // Restore saved captain name
+  const saved = localStorage.getItem('pf_captain') || '';
+  const capEl = document.getElementById('pa-cap');
+  if (saved && capEl) capEl.value = saved;
+  if (capEl) capEl.addEventListener('input', e => localStorage.setItem('pf_captain', e.target.value));
+
+  // Sync listener: when a data-sync span is edited, mirror to paired spans
+  ['pa-en','pa-zh'].forEach(divId => {
+    const div = document.getElementById(divId);
+    if (!div) return;
+    div.addEventListener('input', e => {
+      const key = e.target.dataset && e.target.dataset.sync;
+      if (!key) return;
+      const val = e.target.innerText;
+      document.querySelectorAll(`[data-sync="${key}"]`).forEach(el => {
+        if (el !== e.target) el.innerText = val;
+      });
+    });
+  });
+
+  renderPAContent();
+})();
+
+
+// ── Fuel calc ─────────────────────────────────────────────
+function calcFuel() {
+  const kg = parseFloat(document.getElementById('fuel-kg').value);
+  document.getElementById('fuel-liter').textContent = kg ? (kg / 0.800).toFixed(0) + ' L' : '—';
+}
+function calcFuelLbs() {
+  const kg = parseFloat(document.getElementById('fuel-kg2').value);
+  document.getElementById('fuel-lbs').textContent = kg ? (kg * 2.20462).toFixed(0) + ' lbs' : '—';
+}
+
+// ── Crosswind ─────────────────────────────────────────────
+function calcXwind() {
+  const wdir = parseFloat(document.getElementById('xw-dir').value);
+  const wspd = parseFloat(document.getElementById('xw-spd').value);
+  const rwy  = parseFloat(document.getElementById('xw-rwy').value);
+  if (isNaN(wdir) || isNaN(wspd) || isNaN(rwy)) { alert('請填入風向、風速、跑道方向'); return; }
+
+  const angle = (wdir - rwy) * Math.PI / 180;
+  const xw = Math.abs(wspd * Math.sin(angle));
+  const hw = wspd * Math.cos(angle);
+
+  document.getElementById('xw-result').textContent = xw.toFixed(1) + ' kt';
+  document.getElementById('hw-result').textContent =
+    hw >= 0 ? `+${hw.toFixed(1)} kt 順風` : `${hw.toFixed(1)} kt 逆風`;
+  document.getElementById('hw-result').style.color = hw >= 0 ? 'var(--yellow)' : 'var(--green)';
+}
+
+// ── Cold temp correction (ICAO Doc 8168) ─────────────────
+function calcColdTemp() {
+  const temp = parseFloat(document.getElementById('cold-temp').value);
+  const alt  = parseFloat(document.getElementById('cold-alt').value);
+  const elev = parseFloat(document.getElementById('cold-elev').value) || 0;
+  if (isNaN(temp) || isNaN(alt)) { alert('請填入溫度與高度'); return; }
+
+  // Height above aerodrome
+  const height = alt - elev;
+  // ICAO correction factor: factor = (ISA - OAT) / ISA * height
+  // Simplified: correction ≈ height × (ISA_temp - OAT) / 273
+  const ISA = 15 - 1.98 * (elev / 1000);
+  const correction = Math.round(height * (ISA - temp) / 273);
+
+  document.getElementById('cold-result').textContent = '+' + correction + ' ft';
+  document.getElementById('cold-corrected').textContent = (alt + correction) + ' ft';
+}
+
+// ── Overtime ─────────────────────────────────────────────
+function calcOT() {
+  const toMins = s => {
+    if (!s) return null;
+    const [h, m] = s.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const schedOff = toMins(document.getElementById('ot-sched-off').value);
+  const schedOn  = toMins(document.getElementById('ot-sched-on').value);
+  const actOff   = toMins(document.getElementById('ot-act-off').value);
+  const actOn    = toMins(document.getElementById('ot-act-on').value);
+
+  if (schedOff === null || actOff === null) return;
+  const delay = actOff - schedOff;
+  document.getElementById('ot-delay').textContent =
+    delay >= 0 ? `+${delay} min` : `${delay} min`;
+  document.getElementById('ot-delay').style.color = delay > 0 ? 'var(--yellow)' : 'var(--green)';
+
+  if (schedOn !== null) {
+    const threshold = schedOn + delay;
+    const hh = Math.floor(threshold / 60) % 24;
+    const mm = threshold % 60;
+    document.getElementById('ot-threshold').textContent =
+      `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} UTC`;
+
+    if (actOn !== null) {
+      const isOT = actOn > threshold;
+      document.getElementById('ot-status').textContent = isOT ? '✅ 超時，可申報加班' : '— 未超時';
+      document.getElementById('ot-status').style.color = isOT ? 'var(--green)' : 'var(--text2)';
+    }
+  }
+}
+
+// ── Curfew ────────────────────────────────────────────────
+function updateCurfew() {
+  const now = new Date();
+  const h = now.getUTCHours();
+  const pad = n => String(n).padStart(2,'0');
+  let diff, label;
+
+  if (h >= 7 && h < 23) {
+    const end = new Date(now); end.setUTCHours(23,0,0,0);
+    diff = end - now; label = '距宵禁開始';
+  } else {
+    const end = new Date(now); end.setUTCHours(7,0,0,0);
+    if (h >= 23) end.setUTCDate(end.getUTCDate() + 1);
+    diff = end - now;
+    if (diff < 0) diff += 86400000;
+    label = '距宵禁結束';
+  }
+  document.getElementById('curfew-time').textContent =
+    `${pad(Math.floor(diff/3600000))}:${pad(Math.floor((diff%3600000)/60000))}`;
+  document.getElementById('curfew-sub').textContent = label;
+}
+setInterval(updateCurfew, 10000);
+updateCurfew();
+</script>
+</body>
+</html>

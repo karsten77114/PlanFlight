@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight — 天氣</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>天氣</span></div>
+  <div class="topbar-right">
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <div class="cred-info">
+    <span class="tag">AUTO</span>METAR/TAF 由 AVWX API 自動取得。機場代碼從簡報頁自動帶入。
+  </div>
+
+  <!-- Airport input -->
+  <div class="search-bar">
+    <div class="search-row" style="flex-wrap:wrap;gap:6px">
+      <input class="search-input" id="wx-dep"  style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="DEP" maxlength="4">
+      <input class="search-input" id="wx-dest" style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="DEST" maxlength="4">
+      <input class="search-input" id="wx-altn" style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="ALTN" maxlength="4">
+      <button class="btn btn-primary" onclick="fetchAllMETAR()">查詢天氣</button>
+    </div>
+  </div>
+
+  <!-- METAR results -->
+  <div id="metar-section">
+    <div style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">輸入機場代碼後點「查詢天氣」</div>
+  </div>
+
+  <!-- Windy graphic weather -->
+  <div class="section-label">圖形天氣</div>
+  <div class="windy-tabs">
+    <button class="windy-tab-btn active" onclick="setWindy(this,'radar')">🌧 雷達</button>
+    <button class="windy-tab-btn" onclick="setWindy(this,'sat')">🛰 衛星</button>
+    <button class="windy-tab-btn" onclick="setWindy(this,'wind390')">💨 FL390</button>
+    <button class="windy-tab-btn" onclick="setWindy(this,'cat340')">⚡ CAT</button>
+    <button class="windy-tab-btn" onclick="setWindy(this,'typhoon')">🌀 颱風</button>
+    <button class="windy-tab-btn" onclick="setWindy(this,'jma')">🗾 JMA</button>
+  </div>
+  <iframe id="windy-frame" class="windy-frame"
+    src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=kt&zoom=4&overlay=radar&product=ecmwf&level=surface&lat=20&lon=120"
+    allowfullscreen loading="lazy"></iframe>
+
+  <!-- Quick tools -->
+  <div class="section-label">天氣工具</div>
+  <div class="links-grid">
+    <a class="link-card" href="https://www.windy.com" target="_blank">
+      <div class="link-icon">🌐</div>
+      <div class="link-name">Windy 完整版</div>
+      <div class="link-desc">雷達、風場、亂流</div>
+    </a>
+    <a class="link-card" href="https://www.turbli.com" target="_blank">
+      <div class="link-icon">🌪</div>
+      <div class="link-name">Turbli 亂流</div>
+      <div class="link-desc">航班亂流預測</div>
+    </a>
+    <a class="link-card" href="https://tono2.com" target="_blank">
+      <div class="link-icon">🇯🇵</div>
+      <div class="link-name">Tono2 天氣</div>
+      <div class="link-desc">日本航空氣象</div>
+    </a>
+    <a class="link-card" href="https://www.jma.go.jp/bosai/map.html" target="_blank">
+      <div class="link-icon">🗾</div>
+      <div class="link-name">JMA SIGWX</div>
+      <div class="link-desc">日本顯著天氣圖</div>
+    </a>
+    <a class="link-card" href="https://www.cwa.gov.tw/V8/C/W/Typhoon/Typhoon_CWB.html" target="_blank">
+      <div class="link-icon">🌀</div>
+      <div class="link-name">颱風路徑</div>
+      <div class="link-desc">中央氣象署</div>
+    </a>
+    <a class="link-card" href="https://aviationweather.gov/metar" target="_blank">
+      <div class="link-icon">📡</div>
+      <div class="link-name">NOAA METAR</div>
+      <div class="link-desc">NOAA AWC</div>
+    </a>
+  </div>
+
+</div>
+</div>
+
+<nav class="tabbar">
+  <a class="tab" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab active" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<script>
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Auto-fill from last OFP + restore cached weather
+(function() {
+  // Restore last weather query if < 30 min old
+  const saved = JSON.parse(localStorage.getItem('pf_last_wx') || 'null');
+  if (saved && (Date.now() - saved.ts) < 1800000) {
+    if (saved.dep)  document.getElementById('wx-dep').value  = saved.dep;
+    if (saved.dest) document.getElementById('wx-dest').value = saved.dest;
+    if (saved.altn) document.getElementById('wx-altn').value = saved.altn;
+    const min = Math.round((Date.now() - saved.ts) / 60000);
+    document.getElementById('metar-section').innerHTML = saved.html +
+      `<div style="color:var(--text3);font-size:11px;text-align:right;padding:2px 4px">${min} 分鐘前查詢的快取</div>`;
+    return;
+  }
+  // Otherwise auto-fill from last OFP
+  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  if (!d) return;
+  const dep = d.dep || d.ofp?.dep;
+  const dest = d.dest || d.ofp?.dest;
+  const altn = d.ofp?.altnApt;
+  if (dep)  document.getElementById('wx-dep').value  = dep;
+  if (dest) document.getElementById('wx-dest').value = dest;
+  if (altn) document.getElementById('wx-altn').value = altn.split('/')[0];
+})();
+
+// ── AVWX API ─────────────────────────────────────────────
+const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
+
+async function fetchMETAR(icao) {
+  icao = icao.trim().toUpperCase();
+  if (!icao) return null;
+  // Convert IATA → ICAO for common airports
+  const IATA2ICAO = {
+    TPE:'RCTP', KHH:'RCKH', NRT:'RJAA', HND:'RJTT', KIX:'RJBB',
+    FUK:'RJFF', OKA:'ROAH', CTS:'RJCC', KUL:'WMKK', SGN:'VVTS',
+    BKK:'VTBS', HKG:'VHHH', MNL:'RPLL', SIN:'WSSS', DPS:'WADD',
+    CEB:'RPVM', NGO:'RJGG',
+  };
+  const code = IATA2ICAO[icao] || icao;
+  try {
+    // Try via Cloudflare Worker proxy first; fallback to direct AVWX
+    const resp = await fetch(`${WORKER_URL}/api/weather/metar?icao=${code}`).catch(() => null);
+    if (resp && resp.ok) {
+      const data = await resp.json();
+      return data;
+    }
+    // Direct AVWX (requires API key in worker; graceful fallback)
+    return null;
+  } catch(e) {
+    return null;
+  }
+}
+
+function parseMETARCategory(raw) {
+  if (!raw) return { cat: 'N/A', cls: '' };
+  // Simple heuristic: look for visibility and cloud ceiling
+  const visMatch = raw.match(/\s(\d{4})\s/);
+  const vis = visMatch ? parseInt(visMatch[1]) : 9999;
+  if (vis < 1500) return { cat: 'IFR',  cls: 'cat-imc' };
+  if (vis < 5000) return { cat: 'MVFR', cls: 'cat-mvfr' };
+  return { cat: 'VMC', cls: 'cat-vmc' };
+}
+
+function renderMETARBox(icao, data) {
+  const raw = data ? (data.raw || data.sanitized || '') : '';
+  const { cat, cls } = parseMETARCategory(raw);
+  const label = { RCTP:'桃園', RJAA:'東京成田', RJTT:'東京羽田', RJBB:'大阪關西',
+    WMKK:'吉隆坡', VVTS:'胡志明市', VTBS:'曼谷', VHHH:'香港', RPLL:'馬尼拉',
+    RJFF:'福岡', ROAH:'沖繩', RJCC:'札幌' }[icao] || '';
+
+  return `<div class="metar-box">
+    <div class="metar-header">
+      <div class="metar-icao">${icao}${label ? ' · '+label : ''}</div>
+      <div class="metar-cat ${cls}">${cat}</div>
+    </div>
+    ${raw
+      ? `<div class="metar-raw">${raw}</div>`
+      : `<div style="color:var(--text3);font-size:12px;padding:8px 0">無法取得 METAR（離線或 API 限制）</div>`
+    }
+  </div>`;
+}
+
+async function fetchAllMETAR() {
+  const dep  = document.getElementById('wx-dep').value.trim();
+  const dest = document.getElementById('wx-dest').value.trim();
+  const altn = document.getElementById('wx-altn').value.trim();
+  const airports = [dep, dest, altn].filter(Boolean);
+
+  if (!airports.length) { alert('請輸入至少一個機場代碼'); return; }
+
+  const section = document.getElementById('metar-section');
+  section.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>';
+
+  const results = await Promise.all(airports.map(async a => {
+    const data = await fetchMETAR(a);
+    return { icao: a.toUpperCase(), data };
+  }));
+
+  const html = results.map(r => renderMETARBox(r.icao, r.data)).join('');
+  section.innerHTML = html;
+  localStorage.setItem('pf_last_wx', JSON.stringify({ dep, dest, altn, html, ts: Date.now() }));
+}
+
+// ── Windy layers ──────────────────────────────────────────
+const WINDY = {
+  radar:   'https://embed.windy.com/embed.html?type=map&overlay=radar&zoom=4&lat=20&lon=120',
+  sat:     'https://embed.windy.com/embed.html?type=map&overlay=satellite&zoom=4&lat=20&lon=120',
+  wind390: 'https://embed.windy.com/embed.html?type=map&overlay=wind&level=300h&zoom=4&lat=20&lon=120',
+  cat340:  'https://embed.windy.com/embed.html?type=map&overlay=cbase&zoom=4&lat=20&lon=120',
+  typhoon: 'https://embed.windy.com/embed.html?type=map&overlay=wind&zoom=4&lat=20&lon=130',
+  jma:     'https://embed.windy.com/embed.html?type=map&overlay=wind&zoom=5&lat=36&lon=136',
+};
+function setWindy(btn, type) {
+  document.querySelectorAll('.windy-tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('windy-frame').src = WINDY[type];
+}
+</script>
+</body>
+</html>

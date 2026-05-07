@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight — 簡報</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>簡報</span></div>
+  <div class="topbar-right">
+    <div class="dot-status">
+      <div class="dot" id="auth-dot" style="background:var(--red)"></div>
+      <span id="auth-text">未登入</span>
+    </div>
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <!-- Auth banner（登入後隱藏） -->
+  <div class="auth-banner" id="auth-banner">
+    <span style="font-size:18px">🔐</span>
+    <div class="auth-banner-text">
+      <strong>需要 LIDO 帳號</strong>：首次使用請點右方 ⚙️ 輸入帳號密碼，之後自動記憶。
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="showAuthModal()">⚙️</button>
+  </div>
+
+  <!-- Search bar -->
+  <div class="search-bar">
+    <div class="search-row">
+      <input class="search-input" id="inputFlight" style="max-width:80px;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase" placeholder="班號" maxlength="4">
+      <input class="search-input" id="inputDate" type="date" style="max-width:140px">
+      <input class="search-input" id="inputDep"  style="max-width:65px;text-align:center;text-transform:uppercase" placeholder="DEP" maxlength="4" title="選填：不填時自動搜尋">
+      <span style="color:var(--text3)">→</span>
+      <input class="search-input" id="inputDest" style="max-width:65px;text-align:center;text-transform:uppercase" placeholder="DEST" maxlength="4" title="選填：不填時自動搜尋">
+      <button class="btn btn-primary" id="btnFetch" onclick="doFetch()">查詢</button>
+      <button class="btn btn-ghost btn-sm" onclick="showAuthModal()" title="LIDO 設定">⚙️</button>
+    </div>
+  </div>
+
+  <!-- States -->
+  <div class="state-screen" id="stateWelcome">
+    <div class="state-icon">📋</div>
+    <div class="state-title">LIDO 飛行簡報</div>
+    <div class="state-sub">輸入航班號碼與日期，自動從 LIDO 取得 OFP 資料。<br><br>首次使用請點 ⚙️ 設定 LIDO 帳號。</div>
+  </div>
+
+  <div class="state-screen hidden" id="stateLoading">
+    <div class="spinner"></div>
+    <div class="state-title" id="loadingMsg">正在從 LIDO 取得資料…</div>
+  </div>
+
+  <div class="state-screen hidden" id="stateError">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title">取得資料失敗</div>
+    <div class="state-sub" id="errorMsg"></div>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="doFetch()">重試</button>
+  </div>
+
+  <!-- Result -->
+  <div class="hidden" id="stateResult">
+
+    <!-- Flight header -->
+    <div class="card" id="cardHeader"></div>
+
+    <!-- Times + Wind -->
+    <div class="grid2">
+      <div class="card" id="cardTime"></div>
+      <div class="card" id="cardWind"></div>
+    </div>
+
+    <!-- Fuel + Weight -->
+    <div class="grid2">
+      <div class="card" id="cardFuel"></div>
+      <div class="card" id="cardWeight"></div>
+    </div>
+
+    <!-- ATC Route -->
+    <div class="card" id="cardRoute"></div>
+
+    <!-- Crew Briefing card -->
+    <div class="card" style="border:1px solid #2a4a7f" id="cardCrew">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:0">👥 客艙組員 Briefing</div>
+        <button class="btn btn-ghost btn-sm" onclick="copyCrew()">📋 複製</button>
+      </div>
+
+      <div style="background:var(--surface);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">自動帶入</div>
+        <div class="data-row"><span class="data-label">機號</span><span class="data-val" id="cb-reg" style="color:var(--blue)">—</span></div>
+        <div class="data-row"><span class="data-label">飛行高度</span><input id="cb-alt" class="search-input" style="width:90px;text-align:center;font-weight:700;text-transform:uppercase;padding:2px 6px;height:28px" placeholder="FL390"></div>
+        <div class="data-row"><span class="data-label">飛行時間</span><span class="data-val" id="cb-ete">—</span></div>
+      </div>
+
+      <div style="border:1px solid #f59e0b33;border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">⚠ 手動輸入</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:3px">出發停機位</div>
+            <input id="cb-dep-gate" class="search-input" style="width:100%;font-weight:700;text-align:center" placeholder="B6">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:3px">抵達停機位</div>
+            <input id="cb-arr-gate" class="search-input" style="width:100%;font-weight:700;text-align:center" placeholder="C22">
+          </div>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">飲用水 (%)</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input id="cb-water" class="search-input" style="width:70px;text-align:center;font-weight:700" placeholder="100" value="100">
+            <div style="flex:1;height:6px;background:var(--surface);border-radius:3px;overflow:hidden">
+              <div id="cb-water-bar" style="height:100%;width:100%;background:var(--blue);border-radius:3px;transition:.3s"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">天氣摘要</div>
+          <textarea id="cb-wx" class="search-input" style="width:100%;min-height:52px;resize:none;font-size:12px;line-height:1.5" placeholder="例：目的地 FCST TSRA，巡航段平順"></textarea>
+        </div>
+      </div>
+
+      <div id="crew-preview" style="margin-top:10px;background:var(--surface);border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.8;color:var(--text2);white-space:pre-wrap;font-family:'SF Mono',monospace"></div>
+    </div>
+
+
+  </div><!-- /stateResult -->
+
+</div>
+</div>
+
+<!-- Tab Bar -->
+<nav class="tabbar">
+  <a class="tab" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab active" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<!-- Auth Modal -->
+<div class="overlay hidden" id="authOverlay">
+  <div class="modal">
+    <h2>🔐 LIDO 帳號設定</h2>
+    <p>輸入您的 LIDO 帳號與密碼。憑證儲存在您的裝置上（localStorage），不會上傳至任何第三方。</p>
+    <div class="err-msg hidden" id="authErr"></div>
+    <div class="form-group">
+      <label class="form-label">LIDO User ID</label>
+      <input class="form-input" id="authUserId" type="text" placeholder="例：pilot" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">密碼</label>
+      <input class="form-input" id="authPassword" type="password" placeholder="LIDO 登入密碼" autocomplete="current-password">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="hideAuthModal()">取消</button>
+      <button class="btn btn-primary" id="btnLogin" onclick="doLogin()">登入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
+let sessionToken = localStorage.getItem('jxb_session') || null;
+let currentOFP = null;
+
+// ── UTC Clock ────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Init ─────────────────────────────────────────────────
+(function init() {
+  const today = new Date();
+  document.getElementById('inputDate').value =
+    `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  const last = JSON.parse(localStorage.getItem('jxb_last') || '{}');
+  if (last.flight) document.getElementById('inputFlight').value = last.flight;
+  if (last.dep)    document.getElementById('inputDep').value    = last.dep;
+  if (last.dest)   document.getElementById('inputDest').value   = last.dest;
+
+  updateAuthStatus();
+
+  // 恢復上次查詢結果（切換分頁後回來不需重新查詢）
+  const lastOfp = localStorage.getItem('pf_last_ofp');
+  if (lastOfp) {
+    try {
+      const saved = JSON.parse(lastOfp);
+      // 同步日期欄位
+      if (saved.date && saved.date.length === 8) {
+        const d = saved.date;
+        document.getElementById('inputDate').value = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+      }
+      renderResult(saved);
+    } catch(e) { /* ignore corrupted cache */ }
+  }
+
+  ['inputFlight','inputDate','inputDep','inputDest'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doFetch(); });
+  });
+
+  // crew preview live update
+  ['cb-dep-gate','cb-arr-gate','cb-water','cb-wx','cb-alt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateCrewPreview);
+  });
+})();
+
+// ── Auth Status ───────────────────────────────────────────
+function updateAuthStatus() {
+  const userId = localStorage.getItem('jxb_userId');
+  const dot = document.getElementById('auth-dot');
+  const txt = document.getElementById('auth-text');
+  const banner = document.getElementById('auth-banner');
+
+  if (sessionToken && userId) {
+    dot.style.background = 'var(--green)';
+    txt.textContent = userId;
+    banner.style.display = 'none';
+  } else if (userId) {
+    dot.style.background = 'var(--yellow)';
+    txt.textContent = '需重新登入';
+  } else {
+    dot.style.background = 'var(--red)';
+    txt.textContent = '未登入';
+  }
+}
+
+// ── Auth Modal ────────────────────────────────────────────
+function showAuthModal() {
+  const userId = localStorage.getItem('jxb_userId') || '';
+  document.getElementById('authUserId').value = userId;
+  document.getElementById('authPassword').value = '';
+  document.getElementById('authErr').classList.add('hidden');
+  document.getElementById('authOverlay').classList.remove('hidden');
+  setTimeout(() => document.getElementById(userId ? 'authPassword' : 'authUserId').focus(), 50);
+}
+function hideAuthModal() {
+  document.getElementById('authOverlay').classList.add('hidden');
+}
+function showAuthErr(msg) {
+  const el = document.getElementById('authErr');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+async function doLogin() {
+  const userId   = document.getElementById('authUserId').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!userId || !password) { showAuthErr('請填寫帳號和密碼'); return; }
+
+  const btn = document.getElementById('btnLogin');
+  btn.textContent = '登入中…'; btn.disabled = true;
+  document.getElementById('authErr').classList.add('hidden');
+
+  try {
+    const resp = await fetch(`${WORKER_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, password })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      showAuthErr(data.error || '登入失敗，請確認帳號密碼');
+      return;
+    }
+
+    sessionToken = data.sessionToken;
+    localStorage.setItem('jxb_session',  sessionToken);
+    localStorage.setItem('jxb_userId',   userId);
+    localStorage.setItem('jxb_password', password);
+
+    hideAuthModal();
+    updateAuthStatus();
+    showToast('✅ 登入成功');
+  } catch(e) {
+    showAuthErr('連線失敗：' + e.message + ' (type:' + e.name + ')');
+    console.error('Login fetch error:', e, e.stack);
+  } finally {
+    btn.textContent = '登入'; btn.disabled = false;
+  }
+}
+
+// ── Auto re-login ─────────────────────────────────────────
+async function ensureAuth() {
+  // LIDO sessions expire ~8 hrs; force re-login if token is > 6 hrs old
+  if (sessionToken) {
+    try {
+      const s = JSON.parse(atob(sessionToken));
+      const ageMin = (Date.now() - (s.ts || 0)) / 60000;
+      if (ageMin < 360) return true;
+    } catch(e) {}
+    sessionToken = null;
+    localStorage.removeItem('jxb_session');
+    updateAuthStatus();
+  }
+
+  const userId   = localStorage.getItem('jxb_userId');
+  const password = localStorage.getItem('jxb_password');
+  if (!userId || !password) return false;
+
+  setLoading('正在重新驗證 LIDO…');
+  try {
+    const resp = await fetch(`${WORKER_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, password })
+    });
+    const data = await resp.json();
+    if (resp.ok && data.sessionToken) {
+      sessionToken = data.sessionToken;
+      localStorage.setItem('jxb_session', sessionToken);
+      updateAuthStatus();
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// ── Fetch ─────────────────────────────────────────────────
+async function doFetch() {
+  const flight  = document.getElementById('inputFlight').value.trim().replace(/^JX/i,'');
+  const dateRaw = document.getElementById('inputDate').value;
+  const dep     = document.getElementById('inputDep').value.trim().toUpperCase();
+  const dest    = document.getElementById('inputDest').value.trim().toUpperCase();
+
+  if (!flight) { alert('請輸入班號（如：205）'); return; }
+  if (!dateRaw) { alert('請選擇日期'); return; }
+  // DEP/DEST 為選填：有填則精確匹配，不填由系統自動從飛行清單搜尋
+
+  const dateStr = dateRaw.replace(/-/g,'');
+  localStorage.setItem('jxb_last', JSON.stringify({ flight, dep, dest }));
+
+  const hasAuth = await ensureAuth();
+  if (!hasAuth) { showAuthModal(); return; }
+
+  setLoading(dep && dest ? '正在從 LIDO 取得航班資料…' : `正在搜尋 JX${flight} 班表…`);
+
+  try {
+    let url = `${WORKER_URL}/api/briefing?flight=${flight}&date=${dateStr}&sessionToken=${sessionToken}`;
+    if (dep)  url += `&dep=${dep}`;
+    if (dest) url += `&dest=${dest}`;
+
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (resp.status === 401) {
+      sessionToken = null;
+      localStorage.removeItem('jxb_session');
+      updateAuthStatus();
+      showError('Session 過期，請重新登入', true);
+      return;
+    }
+    if (!resp.ok || data.error) {
+      showError(data.error || `伺服器錯誤 (${resp.status})`);
+      return;
+    }
+
+    // inject flight + date for reference
+    if (data.ofp) { data.ofp.flight = flight; }
+    data.date = dateRaw;
+
+    currentOFP = data;
+    localStorage.setItem('pf_last_ofp', JSON.stringify(data));
+    renderResult(data);
+  } catch(e) {
+    showError('連線失敗：' + e.message);
+  }
+}
+
+// ── UI helpers ────────────────────────────────────────────
+function setState(id) {
+  ['stateWelcome','stateLoading','stateError','stateResult'].forEach(s => {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+function setLoading(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+  setState('stateLoading');
+}
+function showError(msg, doLogin = false) {
+  document.getElementById('errorMsg').textContent = msg;
+  setState('stateError');
+  if (doLogin) setTimeout(() => showAuthModal(), 500);
+}
+
+// ── Render ────────────────────────────────────────────────
+function renderResult(d) {
+  const o = d.ofp || {};                   // OFP 文字解析補充
+  const t = d.times || {};                 // 新結構：時刻
+  const f = d.fuel || {};                  // 新結構：燃油
+  const w = d.weight || {};               // 新結構：重量
+  const ac = d.aircraft || {};             // 新結構：機型
+
+  const flt = d.flightNumber || ('JX' + (o.flight || document.getElementById('inputFlight').value.replace(/^JX/i,'')));
+  const dep  = d.dep  || o.dep  || '—';
+  const dest = d.dest || o.dest || '—';
+  const reg  = ac.aircraftRegistration || o.reg || '—';
+  const std  = t.std  || o.stdUtc  || '—';
+  const sta  = t.sta  || o.staUtc  || '—';
+  const stdL = t.stdLocal || o.stdLocal || '';
+  const staL = t.staLocal || o.staLocal || '';
+  const ete  = t.ete  || o.ete   || '';
+
+  // Header
+  document.getElementById('cardHeader').innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:28px;font-weight:900;color:var(--accent)">${flt}</div>
+      <div style="font-size:18px;font-weight:700">${dep} → ${dest}</div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="color:var(--blue);font-weight:700;font-size:15px">${reg}</div>
+        <div style="color:var(--text2);font-size:12px">${formatDate(d.date)}</div>
+      </div>
+    </div>`;
+
+  // Cruise FL for arc display (computed before SVG render)
+  const _caMatch = (d.atsRoute || d.flightRoute || '').match(/[NMK]\d{3,4}[FA](\d{3})/);
+  const _fl = o.cruiseAlt || (_caMatch ? 'FL' + _caMatch[1] : null);
+
+  // Block time = STA - STD; Remaining = Block - ETE
+  function _parseMin(t) {
+    if (!t || t === '—') return null;
+    const s = t.replace('Z','').replace(':','');
+    if (s.length < 4) return null;
+    return parseInt(s.slice(0,2)) * 60 + parseInt(s.slice(2,4));
+  }
+  function _minToHM(m) {
+    if (m < 0) m += 1440;
+    return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+  }
+  const _stdM = _parseMin(std), _staM = _parseMin(sta);
+  let _blockStr = null, _remainStr = null;
+  if (_stdM !== null && _staM !== null) {
+    const _blockM = (_staM - _stdM + 1440) % 1440;
+    _blockStr = _minToHM(_blockM);
+    const _eteMatch = ete.match(/(\d+):(\d+)/);
+    if (_eteMatch) {
+      const _eteM = parseInt(_eteMatch[1]) * 60 + parseInt(_eteMatch[2]);
+      const _remM = _blockM - _eteM;
+      if (_remM > 0) _remainStr = _minToHM(_remM);
+    }
+  }
+
+  // Times — flight arc visualization
+  document.getElementById('cardTime').innerHTML = `
+<div class="arc-wrap">
+  <div class="arc-header">
+    <div class="arc-apt-icao">${dep}</div>
+    <div class="arc-flt-badge">${flt}</div>
+    <div class="arc-apt-icao arc-apt-right">${dest}</div>
+  </div>
+  <svg viewBox="0 0 360 72" preserveAspectRatio="none" style="width:100%;height:72px;display:block">
+    <defs>
+      <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%"   stop-color="#3b82f6" stop-opacity="0.7"/>
+        <stop offset="50%"  stop-color="#93c5fd"/>
+        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.7"/>
+      </linearGradient>
+    </defs>
+    <!-- horizon -->
+    <line x1="18" y1="62" x2="342" y2="62" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+    <!-- flight arc -->
+    <path d="M 18,62 C 100,8 260,8 342,62"
+          fill="none" stroke="url(#arcGrad)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- dep dot -->
+    <circle cx="18" cy="62" r="8" fill="#3b82f6" opacity="0.15"/>
+    <circle cx="18" cy="62" r="4.5" fill="#3b82f6"/>
+    <!-- dest dot -->
+    <circle cx="342" cy="62" r="8" fill="#3b82f6" opacity="0.15"/>
+    <circle cx="342" cy="62" r="4.5" fill="#3b82f6"/>
+    <!-- airplane at peak -->
+    <text x="180" y="20" text-anchor="middle" font-size="15" fill="rgba(147,197,253,0.55)">✈</text>
+    ${ete    ? `<text x="180" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#90b8d8">${ete}</text>` : ''}
+    ${o.dist ? `<text x="180" y="53" text-anchor="middle" font-size="10"   fill="#4a6a8a">${o.dist} NM</text>` : ''}
+  </svg>
+  <div class="arc-footer">
+    <div class="arc-time-block">
+      <div class="arc-tl-lbl">STD</div>
+      <div class="arc-tl-utc">${std}</div>
+      ${stdL ? `<div class="arc-tl-loc">${stdL}L</div>` : ''}
+    </div>
+    <div class="arc-center-stats">
+      ${_fl ? `<div class="arc-fl-val">${_fl}</div><div class="arc-fl-lbl">Cruise FL</div>` : ''}
+    </div>
+    <div class="arc-time-block right">
+      <div class="arc-tl-lbl">STA</div>
+      <div class="arc-tl-utc">${sta}</div>
+      ${staL ? `<div class="arc-tl-loc">${staL}L</div>` : ''}
+    </div>
+  </div>
+  ${(_blockStr || _remainStr) ? `
+  <div style="display:flex;gap:0;border-top:1px solid var(--border);margin-top:8px">
+    ${_blockStr ? `<div style="flex:1;text-align:center;padding:8px 0">
+      <div class="arc-tl-lbl">Block Time</div>
+      <div style="font-size:17px;font-weight:800;font-family:'SF Mono',monospace;color:var(--text)">${_blockStr}</div>
+    </div>` : ''}
+    ${_blockStr && _remainStr ? `<div style="width:1px;background:var(--border);margin:6px 0"></div>` : ''}
+    ${_remainStr ? `<div style="flex:1;text-align:center;padding:8px 0">
+      <div class="arc-tl-lbl">表定剩餘可用</div>
+      <div style="font-size:17px;font-weight:800;font-family:'SF Mono',monospace;color:var(--text2)">${_remainStr}</div>
+    </div>` : ''}
+  </div>` : ''}
+</div>`;
+
+  // 飛行資料（dist/wc 來自 OFP 文字，altn 來自 OFP）
+  document.getElementById('cardWind').innerHTML = `
+    <div class="card-title">飛行資料</div>
+    <div class="stat-row">
+      ${o.dist ? `<div class="stat-box"><div class="stat-val" style="color:var(--blue)">${o.dist}</div><div class="stat-unit">NM 飛行距離</div></div>` : ''}
+      ${o.wc !== undefined ? `<div class="stat-box"><div class="stat-val" style="color:${String(o.wc).startsWith('+')?'var(--green)':'var(--red)'}">${o.wc}</div><div class="stat-unit">Wind Component</div></div>` : ''}
+      ${o.ci !== undefined ? `<div class="stat-box"><div class="stat-val" style="color:var(--text1)">${o.ci}</div><div class="stat-unit">Cost Index</div></div>` : ''}
+    </div>
+    ${o.altnApt ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+      <span style="color:var(--text2)">備降 ALTN</span>
+      <span style="font-weight:700;color:var(--accent)">${o.altnApt} <span style="color:var(--text2);font-size:12px">${o.altnFuel ? fuelStr(o.altnFuel) : ''}</span></span>
+    </div>` : ''}`;
+
+  // 燃油（優先用 JSON 結構；OFP 補充明細含 0 值）
+  // 有值（含 0）才顯示；undefined 代表 OFP 無此欄位則跳過
+  const hasFuel = v => v !== undefined && v !== null;
+  // 順序與 OFP 一致，0 值灰階但不隱藏
+  const fuelItems = [
+    { label: 'Trip Fuel',     val: f.tripFuel     ?? o.tripFuel },
+    { label: 'Dest Hold',     val: o.destHoldFuel },
+    { label: 'Alternate',     val: o.altnFuel },
+    { label: 'Final Reserve', val: o.finalFuel },
+    { label: 'ADD WXX',       val: o.wxxFuel },
+    { label: 'ADD OPN',       val: o.opnFuel },
+    { label: 'ADD ATC',       val: o.atcFuel },
+    { label: 'ADD DEV',       val: o.devFuel },
+    { label: 'Contingency',   val: o.contFuel },
+    { label: 'Crit Fuel',     val: o.critFuel },
+    { label: 'Extra',         val: o.extraFuel },
+    { label: 'Tankering',     val: o.tankerFuel },
+    { label: 'Taxi',          val: f.taxiFuel     ?? o.taxiFuel },
+  ].filter(x => hasFuel(x.val));
+  const totalFuel = f.blockFuel || o.toFuel;
+  document.getElementById('cardFuel').innerHTML = `
+    <div class="card-title">燃油計畫</div>
+    ${fuelItems.map(fi => {
+      const dim = fi.val === 0 ? 'opacity:0.3;' : '';
+      return `<div class="fuel-item" style="${dim}"><span class="fuel-label">${fi.label}</span><span class="fuel-val">${fuelStr(fi.val)}</span></div>`;
+    }).join('')}
+    ${hasFuel(totalFuel) ? `<div class="fuel-total"><span class="fuel-label">Total Fuel</span><span class="fuel-val">${fuelStr(totalFuel)}</span></div>` : ''}`;
+
+  // 重量（JSON API 單位 kg，除以 1000 轉 MT；OFP 解析已是 MT）
+  const kg2mt = kg => (kg && kg > 1000) ? kg / 1000 : kg;
+  const weights = [
+    { label: 'ZFW', pln: kg2mt(w.plannedZfw) || o.zfwPln,  lim: kg2mt(w.maxZfw)             || o.zfwLim },
+    { label: 'TOW', pln: o.towPln,                          lim: kg2mt(w.restrictedTakeOffWeight || w.maxTakeOffWeight) || o.towLim },
+    { label: 'LDW', pln: o.ldwPln,                         lim: kg2mt(w.maxLandingWeight)    || o.ldwLim },
+  ].filter(wt => wt.lim);
+  document.getElementById('cardWeight').innerHTML = `
+    <div class="card-title">重量限制</div>
+    ${weights.map(wt => {
+      const pct = wt.pln ? Math.min(100, Math.round(wt.pln / wt.lim * 100)) : null;
+      const cls = pct ? (pct >= 97 ? 'over' : pct >= 92 ? 'warn' : 'safe') : 'safe';
+      const color = cls === 'safe' ? 'var(--green)' : cls === 'warn' ? 'var(--accent)' : 'var(--red)';
+      return `<div class="weight-row">
+        <div class="weight-labels">
+          <span class="weight-name">${wt.label}</span>
+          ${pct !== null ? `<span class="weight-pct" style="color:${color}">${pct}%</span>` : ''}
+        </div>
+        <div class="weight-bar">${pct ? `<div class="weight-fill ${cls}" style="width:${pct}%"></div>` : ''}</div>
+        <div class="weight-nums">
+          <span>${wt.pln ? wt.pln.toFixed(1) + ' MT' : '—'}</span>
+          <span>MAX ${wt.lim.toFixed(1)} MT</span>
+        </div>
+      </div>`;
+    }).join('')}`;
+
+  // Route — extract field 15 from ICAO FPL embedded in AFTN message
+  function extractRoute(raw) {
+    if (!raw) return null;
+    // ICAO FPL field 15: between "-ICAO####" (dep/time) and "-ICAO####" (dest/time)
+    // e.g. -RPVM0250 -N0464F340 MULOP W11 ... TNN1A -RCTP0210
+    const m = raw.match(/-[A-Z]{4}\d{4}\s+-([NMK]\d{3,4}[FA]\d{3,5}[\s\S]+?)\s+-[A-Z]{4}\d/);
+    if (m) {
+      // Strip leading speed/level group (N0464F340) and optional DCT
+      return m[1].replace(/^[NMK]\d{3,4}[FA]\d{3,5}\s+/, '').replace(/^DCT\s+/, '').trim();
+    }
+    // Fallback for plain route strings
+    let s = raw.trim();
+    s = s.replace(/^[A-Z]{4}\S*\s+/, '');
+    s = s.replace(/^[NMK]\d{3,4}[FA]\d{3,5}\s+/, '');
+    s = s.replace(/^DCT\s+/, '');
+    s = s.replace(/\s+[A-Z]{4}\S*$/, '');
+    return s.trim();
+  }
+  const routeOnly = extractRoute(d.atsRoute);
+  document.getElementById('cardRoute').innerHTML = `
+    <div class="card-title">ATC Route</div>
+    <div class="route-box">${routeOnly || '<span style="color:var(--text3)">暫無 ATS 路線資料</span>'}</div>`;
+
+  // Extract initial cruise level from ATS route: N0480F390 → FL390, M082F380 → FL380
+  function extractCruiseAlt(route) {
+    if (!route) return null;
+    const m = route.match(/[NMK]\d{3,4}[FA](\d{3})/);
+    if (m) return 'FL' + m[1];
+    return null;
+  }
+  const cruiseAlt = o.cruiseAlt || extractCruiseAlt(d.atsRoute) || extractCruiseAlt(d.flightRoute);
+
+  // Crew briefing auto fields
+  document.getElementById('cb-reg').textContent = reg;
+  document.getElementById('cb-alt').value = cruiseAlt || '';
+  document.getElementById('cb-ete').textContent = ete || '—';
+
+  setState('stateResult');
+  updateCrewPreview();
+}
+
+// ── Crew Briefing ─────────────────────────────────────────
+function buildCrewText() {
+  const d = currentOFP || {};
+  const o = d.ofp || {};
+  const t = d.times || {};
+  const ac = d.aircraft || {};
+  const flt  = d.flightNumber || (o.flight ? 'JX' + o.flight : '—');
+  const route = (d.dep && d.dest) ? `${d.dep} → ${d.dest}` : (o.dep && o.dest) ? `${o.dep} → ${o.dest}` : '—';
+  const reg  = ac.aircraftRegistration || o.reg || '—';
+  const ete  = t.ete || o.ete || '—';
+  const depG = document.getElementById('cb-dep-gate').value || '—';
+  const arrG = document.getElementById('cb-arr-gate').value || '—';
+  const water = document.getElementById('cb-water').value || '—';
+  const wx    = document.getElementById('cb-wx').value || '—';
+  return [
+    '【客艙組員 Briefing】',
+    `機號：${reg}`,
+    `航班：${flt}  ${route}`,
+    `出發停機位：${depG}　抵達停機位：${arrG}`,
+    `飛行高度：${document.getElementById('cb-alt').value || '—'}`,
+    `飛行時間：${ete}`,
+    `飲用水：${water}%`,
+    `天氣：${wx}`,
+  ].join('\n');
+}
+function updateCrewPreview() {
+  document.getElementById('crew-preview').textContent = buildCrewText();
+  const w = parseInt(document.getElementById('cb-water').value) || 0;
+  const bar = document.getElementById('cb-water-bar');
+  bar.style.width = Math.min(w, 100) + '%';
+  bar.style.background = w >= 80 ? 'var(--blue)' : w >= 50 ? 'var(--yellow)' : 'var(--red)';
+}
+async function copyCrew() {
+  try {
+    await navigator.clipboard.writeText(buildCrewText());
+    const btn = document.querySelector('[onclick="copyCrew()"]');
+    btn.textContent = '✅ 已複製';
+    setTimeout(() => btn.textContent = '📋 複製', 2000);
+  } catch(e) {}
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function fuelStr(kg) {
+  if (kg === null || kg === undefined) return '—';
+  return Math.round(kg).toLocaleString() + ' kg';
+}
+function formatDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  const M = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  return String(d.getDate()).padStart(2,'0') + M[d.getMonth()] + d.getFullYear();
+}
+function showToast(msg) {
+  const t = document.createElement('div');
+  Object.assign(t.style, {
+    position:'fixed', bottom:'80px', left:'50%', transform:'translateX(-50%)',
+    background:'var(--green)', color:'#fff', padding:'10px 20px',
+    borderRadius:'8px', fontWeight:'700', zIndex:'9999',
+  });
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+</script>
+</body>
+</html>

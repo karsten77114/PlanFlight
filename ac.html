@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight — 飛機</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>飛機</span></div>
+  <div class="topbar-right">
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <div class="auth-banner">
+    <span style="font-size:18px">🔐</span>
+    <div class="auth-banner-text">
+      <strong>需要 ELB 帳號</strong>（與 LIDO 帳號<span style="color:var(--red)">不同</span>）：此頁為規劃中功能，待 ELB API 整合後啟用。
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="alert('ELB 整合開發中…')">⚙️</button>
+  </div>
+
+  <div class="search-bar">
+    <div class="search-row">
+      <input class="search-input" id="inputReg" placeholder="機尾號（如 B-58212）" style="text-transform:uppercase" maxlength="8">
+      <button class="btn btn-primary" onclick="queryAC()">查詢</button>
+    </div>
+  </div>
+
+  <!-- States -->
+  <div class="state-screen" id="stateWelcome">
+    <div class="state-icon">✈️</div>
+    <div class="state-title">ELB 飛機狀態</div>
+    <div class="state-sub">輸入機尾號查詢 MEL 暫緩故障與最近飛行記錄。<br><br>ELB API 整合開發中，敬請期待。</div>
+  </div>
+
+  <div class="state-screen hidden" id="stateResult">
+    <div class="card" style="width:100%;text-align:left">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--blue)" id="ac-reg">B-—</div>
+          <div style="font-size:12px;color:var(--text2)" id="ac-type">A321-252NX · STARLUX</div>
+        </div>
+        <div class="mel-badge" id="mel-badge">查詢中</div>
+      </div>
+      <div id="mel-list">
+        <div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">ELB 整合開發中</div>
+      </div>
+    </div>
+
+    <div class="card" style="width:100%;text-align:left;margin-top:0">
+      <div class="card-title">最近飛行記錄</div>
+      <div id="ac-history">
+        <div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">ELB 整合開發中</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="section-label">快速入口</div>
+  <div class="links-grid">
+    <a class="link-card" href="https://sjxelb.starlux-airlines.com" target="_blank">
+      <div class="link-icon">🛩</div>
+      <div class="link-name">SJX ELB Fleet</div>
+      <div class="link-desc">直接開啟 ELB 網站</div>
+    </a>
+    <a class="link-card" href="https://sflight.starlux-airlines.com" target="_blank">
+      <div class="link-icon">🌟</div>
+      <div class="link-name">JX Pilot Space</div>
+      <div class="link-desc">公司系統</div>
+    </a>
+  </div>
+
+</div>
+</div>
+
+<nav class="tabbar">
+  <a class="tab" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab active" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<script>
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function queryAC() {
+  const reg = document.getElementById('inputReg').value.trim().toUpperCase();
+  if (!reg) return;
+  document.getElementById('stateWelcome').classList.add('hidden');
+  document.getElementById('stateResult').classList.remove('hidden');
+  document.getElementById('ac-reg').textContent = reg;
+  document.getElementById('mel-badge').className = 'mel-badge mel-warn';
+  document.getElementById('mel-badge').textContent = 'ELB 整合開發中';
+}
+
+// Auto-fill from last OFP
+(function() {
+  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  if (d && d.ofp && d.ofp.reg) {
+    document.getElementById('inputReg').value = d.ofp.reg;
+  }
+})();
+</script>
+</body>
+</html>

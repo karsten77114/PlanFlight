@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1824">
+<title>PlanFlight — 記錄</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PlanFlight<span>記錄</span></div>
+  <div class="topbar-right">
+    <button class="btn btn-ghost btn-sm" onclick="showEditModal()">✏️ 更新</button>
+    <div class="utc-clock" id="utc-clock">--:--:-- UTC</div>
+  </div>
+</div>
+
+<div class="main">
+<div class="page-content">
+
+  <div class="cred-info">
+    <span class="tag">手動</span>Phase 1 網頁版手動輸入關鍵數字，iOS App 版將自動讀取 iCloud Numbers 飛行記錄。
+  </div>
+
+  <!-- 資格燈號 -->
+  <div class="section-label">資格燈號</div>
+  <div id="currency-cards"></div>
+
+  <!-- 飛行統計 -->
+  <div class="section-label">飛行時數統計（SJX A321）</div>
+  <div class="grid3" id="stats-grid">
+    <div class="card stat-card">
+      <div class="stat-num" id="stat-total">—</div>
+      <div class="stat-label">總時數 (h)</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-num" id="stat-sectors">—</div>
+      <div class="stat-label">總航段</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-num" id="stat-last" style="font-size:14px">—</div>
+      <div class="stat-label">最後落地日</div>
+    </div>
+  </div>
+
+  <!-- Career total -->
+  <div class="section-label">Career Total</div>
+  <div class="card" id="career-card">
+    <div style="color:var(--text3);font-size:12px;text-align:center;padding:8px 0">點右上角「更新」輸入資料</div>
+  </div>
+
+</div>
+</div>
+
+<nav class="tabbar">
+  <a class="tab" href="/index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="/brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="/ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="/wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="/tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab active" href="/log.html"><div class="tab-icon">📒</div>記錄</a>
+</nav>
+
+<!-- Edit Modal -->
+<div class="overlay hidden" id="editOverlay">
+  <div class="modal" style="max-height:90vh;overflow-y:auto">
+    <h2>✏️ 更新飛行資料</h2>
+    <p>輸入您的最新資格與飛行統計數字。資料儲存於裝置本機。</p>
+
+    <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:10px;text-transform:uppercase">資格追蹤</div>
+
+    <div class="form-group">
+      <label class="form-label">90天最近起落日期（最早的那次）</label>
+      <input class="form-input" id="edit-currency-date" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">過去90天 起飛/落地 次數</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="edit-to-count" type="number" placeholder="起飛次" min="0" style="flex:1">
+        <input class="form-input" id="edit-ldg-count" type="number" placeholder="落地次" min="0" style="flex:1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">過去180天 ILS 近場次數</label>
+      <input class="form-input" id="edit-ils" type="number" placeholder="次數" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">護照到期日</label>
+      <input class="form-input" id="edit-passport" type="date">
+    </div>
+    <div class="form-group">
+      <label class="form-label">年度體檢到期日</label>
+      <input class="form-input" id="edit-medical" type="date">
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--accent);margin:14px 0 10px;text-transform:uppercase">SJX A321 統計</div>
+
+    <div class="form-group">
+      <label class="form-label">總飛行時數 (h)</label>
+      <input class="form-input" id="edit-sjx-hours" type="number" placeholder="1584" step="0.1" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">總航段數</label>
+      <input class="form-input" id="edit-sjx-sectors" type="number" placeholder="531" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">最後落地日期</label>
+      <input class="form-input" id="edit-last-ldg" type="date">
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--accent);margin:14px 0 10px;text-transform:uppercase">Career Total</div>
+
+    <div class="form-group">
+      <label class="form-label">ATR 72-600（MDA）時數 (h)</label>
+      <input class="form-input" id="edit-atr" type="number" placeholder="2668" step="0.1" min="0">
+    </div>
+    <div class="form-group">
+      <label class="form-label">CPL 訓練時數 (h)</label>
+      <input class="form-input" id="edit-cpl" type="number" placeholder="201" step="0.1" min="0">
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="hideEditModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveLog()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('utc-clock').textContent =
+    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Data ──────────────────────────────────────────────────
+function loadLog() {
+  return JSON.parse(localStorage.getItem('pf_log') || '{}');
+}
+
+function renderLog() {
+  const d = loadLog();
+  const today = new Date();
+
+  // ── Currency cards ─────────────────────────────────────
+  const cards = [];
+
+  // 90-day landing currency
+  if (d.currencyDate) {
+    const oldest = new Date(d.currencyDate);
+    const expiry = new Date(oldest);
+    expiry.setDate(expiry.getDate() + 90);
+    const daysLeft = Math.ceil((expiry - today) / 86400000);
+    const cls = daysLeft > 30 ? 'green' : daysLeft > 7 ? 'yellow' : 'red';
+    const to = d.toCount || '?'; const ldg = d.ldgCount || '?';
+    cards.push(`
+      <div class="currency-card ${cls}">
+        <div class="currency-header">
+          <div>
+            <div class="currency-title">90天起降資格</div>
+            <div class="currency-desc">過去90天：${to}次起飛 / ${ldg}次落地</div>
+          </div>
+          <div>
+            <div class="currency-num ${cls}">${daysLeft}</div>
+            <div style="font-size:10px;color:var(--text3)">天後到期</div>
+          </div>
+        </div>
+      </div>`);
+  } else {
+    cards.push(`<div class="currency-card yellow">
+      <div class="currency-title">90天起降資格</div>
+      <div class="currency-desc" style="margin-top:6px">點「更新」輸入最近起落日期</div>
+    </div>`);
+  }
+
+  // ILS currency
+  if (d.ilsCount !== undefined) {
+    cards.push(`
+      <div class="currency-card green">
+        <div class="currency-header">
+          <div>
+            <div class="currency-title">ILS 近場（過去180天）</div>
+            <div class="currency-desc">${d.ilsCount} 次 ILS ✓</div>
+          </div>
+          <div>
+            <div class="currency-num green">${d.ilsCount}</div>
+            <div style="font-size:10px;color:var(--text3)">次</div>
+          </div>
+        </div>
+      </div>`);
+  }
+
+  // Passport
+  if (d.passportExp) {
+    const exp = new Date(d.passportExp);
+    const daysLeft = Math.ceil((exp - today) / 86400000);
+    const cls = daysLeft > 180 ? 'green' : daysLeft > 90 ? 'yellow' : 'red';
+    cards.push(`
+      <div class="currency-card ${cls}">
+        <div class="currency-header">
+          <div>
+            <div class="currency-title">護照效期</div>
+            <div class="currency-desc">到期：${d.passportExp}（剩 ${daysLeft} 天）</div>
+          </div>
+          <div>
+            <div class="currency-num ${cls}">${daysLeft}</div>
+            <div style="font-size:10px;color:var(--text3)">天</div>
+          </div>
+        </div>
+      </div>`);
+  }
+
+  // Medical
+  if (d.medicalExp) {
+    const exp = new Date(d.medicalExp);
+    const daysLeft = Math.ceil((exp - today) / 86400000);
+    const cls = daysLeft > 60 ? 'green' : daysLeft > 14 ? 'yellow' : 'red';
+    cards.push(`
+      <div class="currency-card ${cls}">
+        <div class="currency-header">
+          <div>
+            <div class="currency-title">年度體檢效期</div>
+            <div class="currency-desc">到期：${d.medicalExp}（剩 ${daysLeft} 天）</div>
+          </div>
+          <div>
+            <div class="currency-num ${cls}">${daysLeft}</div>
+            <div style="font-size:10px;color:var(--text3)">天</div>
+          </div>
+        </div>
+      </div>`);
+  }
+
+  document.getElementById('currency-cards').innerHTML = cards.join('');
+
+  // ── Stats ──────────────────────────────────────────────
+  document.getElementById('stat-total').textContent   = d.sjxHours   ? Math.round(d.sjxHours)  : '—';
+  document.getElementById('stat-sectors').textContent = d.sjxSectors || '—';
+  document.getElementById('stat-last').textContent    = d.lastLdg    || '—';
+
+  // ── Career ─────────────────────────────────────────────
+  const sjx = parseFloat(d.sjxHours)  || 0;
+  const atr = parseFloat(d.atrHours)  || 0;
+  const cpl = parseFloat(d.cplHours)  || 0;
+  const total = sjx + atr + cpl;
+  const careerEl = document.getElementById('career-card');
+  if (total === 0) {
+    careerEl.innerHTML = `<div style="color:var(--text3);font-size:12px;text-align:center;padding:8px 0">點右上角「更新」輸入資料</div>`;
+  } else {
+    careerEl.innerHTML = `
+      ${atr ? `<div class="data-row"><span class="data-label">ATR 72-600（MDA）</span><span class="data-val" style="color:var(--blue)">${atr.toFixed(0)}h</span></div>` : ''}
+      ${sjx ? `<div class="data-row"><span class="data-label">A321（STARLUX）</span><span class="data-val" style="color:var(--blue)">${sjx.toFixed(0)}h</span></div>` : ''}
+      ${cpl ? `<div class="data-row"><span class="data-label">CPL 訓練</span><span class="data-val" style="color:var(--text2)">${cpl.toFixed(0)}h</span></div>` : ''}
+      <div style="background:var(--surface);border-radius:8px;padding:8px 10px;margin-top:8px;display:flex;justify-content:space-between">
+        <span style="font-weight:700">Career Total</span>
+        <span style="font-size:20px;font-weight:900;color:var(--accent)">${total.toFixed(0)}h</span>
+      </div>`;
+  }
+}
+
+// ── Edit modal ────────────────────────────────────────────
+function showEditModal() {
+  const d = loadLog();
+  if (d.currencyDate) document.getElementById('edit-currency-date').value = d.currencyDate;
+  if (d.toCount)      document.getElementById('edit-to-count').value       = d.toCount;
+  if (d.ldgCount)     document.getElementById('edit-ldg-count').value      = d.ldgCount;
+  if (d.ilsCount)     document.getElementById('edit-ils').value            = d.ilsCount;
+  if (d.passportExp)  document.getElementById('edit-passport').value       = d.passportExp;
+  if (d.medicalExp)   document.getElementById('edit-medical').value        = d.medicalExp;
+  if (d.sjxHours)     document.getElementById('edit-sjx-hours').value      = d.sjxHours;
+  if (d.sjxSectors)   document.getElementById('edit-sjx-sectors').value    = d.sjxSectors;
+  if (d.lastLdg)      document.getElementById('edit-last-ldg').value       = d.lastLdg;
+  if (d.atrHours)     document.getElementById('edit-atr').value            = d.atrHours;
+  if (d.cplHours)     document.getElementById('edit-cpl').value            = d.cplHours;
+  document.getElementById('editOverlay').classList.remove('hidden');
+}
+function hideEditModal() {
+  document.getElementById('editOverlay').classList.add('hidden');
+}
+function saveLog() {
+  const data = {
+    currencyDate: document.getElementById('edit-currency-date').value,
+    toCount:      parseInt(document.getElementById('edit-to-count').value) || 0,
+    ldgCount:     parseInt(document.getElementById('edit-ldg-count').value) || 0,
+    ilsCount:     parseInt(document.getElementById('edit-ils').value) || undefined,
+    passportExp:  document.getElementById('edit-passport').value,
+    medicalExp:   document.getElementById('edit-medical').value,
+    sjxHours:     parseFloat(document.getElementById('edit-sjx-hours').value) || 0,
+    sjxSectors:   parseInt(document.getElementById('edit-sjx-sectors').value) || 0,
+    lastLdg:      document.getElementById('edit-last-ldg').value,
+    atrHours:     parseFloat(document.getElementById('edit-atr').value) || 0,
+    cplHours:     parseFloat(document.getElementById('edit-cpl').value) || 0,
+  };
+  localStorage.setItem('pf_log', JSON.stringify(data));
+  hideEditModal();
+  renderLog();
+}
+
+renderLog();
+</script>
+</body>
+</html>

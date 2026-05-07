@@ -1,0 +1,8 @@
+# Claude Code 本地設定
+.claude/
+
+# macOS
+.DS_Store
+
+# Node.js
+node_modules/
