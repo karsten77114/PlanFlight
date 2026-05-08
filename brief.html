@@ -35,14 +35,22 @@
 
   <!-- Search bar -->
   <div class="search-bar">
-    <div class="search-row">
-      <input class="search-input" id="inputFlight" style="max-width:80px;font-weight:700;font-size:16px;letter-spacing:1px;text-transform:uppercase" placeholder="班號" maxlength="4">
-      <input class="search-input" id="inputDate" type="date" style="max-width:140px">
-      <input class="search-input" id="inputDep"  style="max-width:65px;text-align:center;text-transform:uppercase" placeholder="DEP" maxlength="4" title="選填：不填時自動搜尋">
-      <span style="color:var(--text3)">→</span>
-      <input class="search-input" id="inputDest" style="max-width:65px;text-align:center;text-transform:uppercase" placeholder="DEST" maxlength="4" title="選填：不填時自動搜尋">
-      <button class="btn btn-primary" id="btnFetch" onclick="doFetch()">查詢</button>
-      <button class="btn btn-ghost btn-sm" onclick="showAuthModal()" title="LIDO 設定">⚙️</button>
+    <input class="search-input search-input-flight" id="inputFlight"
+           placeholder="班號（如 205）" maxlength="4"
+           autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    <input class="search-input" id="inputDate" type="date">
+    <div class="search-row-half">
+      <input class="search-input" id="inputDep" placeholder="DEP" maxlength="4"
+             autocomplete="off" autocapitalize="characters" spellcheck="false"
+             title="選填：不填時自動搜尋">
+      <span class="dep-dest-arrow">→</span>
+      <input class="search-input" id="inputDest" placeholder="DEST" maxlength="4"
+             autocomplete="off" autocapitalize="characters" spellcheck="false"
+             title="選填：不填時自動搜尋">
+    </div>
+    <div class="search-row-actions">
+      <button class="btn btn-primary btn-search" id="btnFetch" onclick="doFetch()">查詢</button>
+      <button class="btn btn-ghost btn-icon" onclick="showAuthModal()" title="LIDO 設定">⚙️</button>
     </div>
   </div>
 
