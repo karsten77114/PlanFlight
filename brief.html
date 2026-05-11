@@ -50,8 +50,18 @@
     </div>
     <div class="search-row-actions">
       <button class="btn btn-primary btn-search" id="btnFetch" onclick="doFetch()">查詢</button>
+      <button class="btn btn-ghost btn-sm" id="btnBrowse" onclick="toggleFlightTable()" title="瀏覽班表">📋</button>
       <button class="btn btn-ghost btn-icon" onclick="showAuthModal()" title="LIDO 設定">⚙️</button>
     </div>
+  </div>
+
+  <!-- Flight Table Panel -->
+  <div id="flightTablePanel" class="hidden">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <input class="search-input" id="ftFilter" placeholder="搜尋班號 / 航段…" style="flex:1" oninput="filterFlightTable()">
+      <button class="btn btn-ghost btn-sm" onclick="closeFlightTable()">✕</button>
+    </div>
+    <div id="ftContent" style="font-size:13px;color:var(--text2);text-align:center;padding:12px">按日期後點 📋 載入班表</div>
   </div>
 
   <!-- States -->
@@ -179,6 +189,7 @@
 const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
 let sessionToken = localStorage.getItem('jxb_session') || null;
 let currentOFP = null;
+let _selectedLegId = null;   // pre-resolved legId from flight table (avoids ICAO/IATA mismatch)
 
 // ── UTC Clock ────────────────────────────────────────────
 function updateClock() {
@@ -208,6 +219,7 @@ updateClock();
   if (lastOfp) {
     try {
       const saved = JSON.parse(lastOfp);
+      currentOFP = saved;  // 必須先設好，否則 buildCrewText() 拿不到航班資料
       // 同步日期欄位
       if (saved.date && saved.date.length === 8) {
         const d = saved.date;
@@ -217,14 +229,27 @@ updateClock();
     } catch(e) { /* ignore corrupted cache */ }
   }
 
+  // 恢復組員 Briefing 手動欄位
+  const crewFields = ['cb-dep-gate','cb-arr-gate','cb-water','cb-wx'];
+  crewFields.forEach(id => {
+    const saved = localStorage.getItem('pf_crew_' + id);
+    if (saved !== null) {
+      const el = document.getElementById(id);
+      if (el) el.value = saved;
+    }
+  });
+
   ['inputFlight','inputDate','inputDep','inputDest'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') doFetch(); });
   });
 
-  // crew preview live update
+  // crew preview live update + 自動存到 localStorage
   ['cb-dep-gate','cb-arr-gate','cb-water','cb-wx','cb-alt'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateCrewPreview);
+    if (el) el.addEventListener('input', () => {
+      if (id !== 'cb-alt') localStorage.setItem('pf_crew_' + id, el.value);
+      updateCrewPreview();
+    });
   });
 })();
 
@@ -340,6 +365,109 @@ async function ensureAuth() {
   return false;
 }
 
+// ── Flight Table ──────────────────────────────────────────
+let _ftFlights = [];   // cached raw flight list
+let _ftOpen = false;
+
+async function toggleFlightTable() {
+  const panel = document.getElementById('flightTablePanel');
+  _ftOpen = !_ftOpen;
+  if (!_ftOpen) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+  await loadFlightTable();
+}
+
+function closeFlightTable() {
+  _ftOpen = false;
+  document.getElementById('flightTablePanel').classList.add('hidden');
+}
+
+async function loadFlightTable() {
+  const contentEl = document.getElementById('ftContent');
+  const dateRaw = document.getElementById('inputDate').value;
+  if (!dateRaw) { contentEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text3)">請先選擇日期</div>'; return; }
+  if (!sessionToken) { contentEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text3)">請先登入 LIDO</div>'; return; }
+
+  contentEl.innerHTML = '<div style="text-align:center;padding:12px"><div class="spinner" style="margin:0 auto"></div></div>';
+  const dateStr = dateRaw.replace(/-/g,'');
+  try {
+    // Ensure auth is valid before calling /flights
+    const ok = await ensureAuth();
+    if (!ok) { contentEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--red)">Session 過期，請重新登入</div>'; showAuthModal(); return; }
+
+    const resp = await fetch(`${WORKER_URL}/flights?sessionToken=${encodeURIComponent(sessionToken)}&date=${dateStr}`);
+    if (resp.status === 401) {
+      // Token rejected by LIDO — force re-login then retry once
+      sessionToken = null; localStorage.removeItem('jxb_session');
+      const reOk = await ensureAuth();
+      if (!reOk) { contentEl.innerHTML = '<div style="text-align:center;padding:12px;color:var(--red)">Session 過期，請重新登入</div>'; showAuthModal(); return; }
+      const resp2 = await fetch(`${WORKER_URL}/flights?sessionToken=${encodeURIComponent(sessionToken)}&date=${dateStr}`);
+      _ftFlights = await resp2.json();
+    } else {
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      _ftFlights = await resp.json();
+    }
+    if (_ftFlights.error) throw new Error(_ftFlights.error);
+    renderFlightTable(_ftFlights);
+  } catch(e) {
+    contentEl.innerHTML = `<div style="text-align:center;padding:12px;color:var(--red)">載入失敗：${e.message}</div>`;
+  }
+}
+
+function renderFlightTable(flights) {
+  const el = document.getElementById('ftContent');
+  if (!flights.length) { el.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text3)">無航班資料</div>'; return; }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    const m = iso.match(/T(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}Z` : iso.slice(11,16)+'Z';
+  }
+  function statusCls(s) {
+    if (!s) return 'none';
+    const sl = s.toLowerCase();
+    if (sl.includes('released') || sl.includes('complete')) return 'ok';
+    if (sl.includes('progress') || sl.includes('pending'))  return 'warn';
+    return 'none';
+  }
+
+  const rows = flights.map(f => `
+    <tr class="ft-row" onclick="selectFlight('${f.flight}','${encodeURIComponent(f.legId||'')}')">
+      <td><span class="ft-flt">JX${f.flight}</span></td>
+      <td><span class="ft-route">${f.dep} → ${f.dest}</span></td>
+      <td><span class="ft-std">${fmtTime(f.std)}</span></td>
+      <td><span class="ft-status ${statusCls(f.status)}">${f.status || '—'}</span></td>
+    </tr>`).join('');
+
+  el.innerHTML = `<table class="ft-table">
+    <thead><tr>
+      <th>班號</th><th>航段</th><th>STD</th><th>狀態</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function filterFlightTable() {
+  const q = document.getElementById('ftFilter').value.trim().toLowerCase();
+  if (!q) { renderFlightTable(_ftFlights); return; }
+  const filtered = _ftFlights.filter(f =>
+    `jx${f.flight}`.includes(q) || f.dep?.toLowerCase().includes(q) || f.dest?.toLowerCase().includes(q)
+  );
+  renderFlightTable(filtered);
+}
+
+function selectFlight(flight, encodedLegId) {
+  // legId 直接帶入（已含 IATA 代碼），不走 dep/dest 拼接，避免 ICAO/IATA 混淆
+  const legId = decodeURIComponent(encodedLegId || '');
+  document.getElementById('inputFlight').value = flight;
+  // 清空 dep/dest 避免 worker 用舊值拼出錯誤 legId
+  document.getElementById('inputDep').value  = '';
+  document.getElementById('inputDest').value = '';
+  _selectedLegId = legId || null;
+  closeFlightTable();
+  doFetch();
+}
+
 // ── Fetch ─────────────────────────────────────────────────
 async function doFetch() {
   const flight  = document.getElementById('inputFlight').value.trim().replace(/^JX/i,'');
@@ -357,12 +485,18 @@ async function doFetch() {
   const hasAuth = await ensureAuth();
   if (!hasAuth) { showAuthModal(); return; }
 
-  setLoading(dep && dest ? '正在從 LIDO 取得航班資料…' : `正在搜尋 JX${flight} 班表…`);
+  const usingLegId = !!_selectedLegId;
+  setLoading(usingLegId || (dep && dest) ? '正在從 LIDO 取得航班資料…' : `正在搜尋 JX${flight} 班表…`);
 
   try {
     let url = `${WORKER_URL}/api/briefing?flight=${flight}&date=${dateStr}&sessionToken=${sessionToken}`;
-    if (dep)  url += `&dep=${dep}`;
-    if (dest) url += `&dest=${dest}`;
+    if (usingLegId) {
+      url += `&legId=${encodeURIComponent(_selectedLegId)}`;
+      _selectedLegId = null;  // 用後清除
+    } else {
+      if (dep)  url += `&dep=${dep}`;
+      if (dest) url += `&dest=${dest}`;
+    }
 
     const resp = await fetch(url);
     const data = await resp.json();
