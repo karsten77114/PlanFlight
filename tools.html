@@ -21,15 +21,15 @@
 <div class="page-content">
 
   <div class="tool-tabs">
-    <button class="tool-tab active" onclick="setTool(this,'fdp')">FDP<br>休息</button>
-    <button class="tool-tab" onclick="setTool(this,'pa')">PA<br>廣播詞</button>
+    <button class="tool-tab active" onclick="setTool(this,'pa')">PA<br>廣播詞</button>
+    <button class="tool-tab" onclick="setTool(this,'fdp')">FDP<br>休息</button>
     <button class="tool-tab" onclick="setTool(this,'calc')">計算<br>工具</button>
     <button class="tool-tab" onclick="setTool(this,'ot')">加班費</button>
     <button class="tool-tab" onclick="setTool(this,'links')">連結<br>入口</button>
   </div>
 
   <!-- ══ FDP ══ -->
-  <div class="tool-panel active" id="tool-fdp">
+  <div class="tool-panel" id="tool-fdp">
     <div class="cred-info"><span class="tag">本地</span>全部在裝置上計算，不需網路或帳號。CAR 07-02A</div>
     <div class="card">
       <div class="form-group">
@@ -127,7 +127,7 @@
   </div>
 
   <!-- ══ PA ══ -->
-  <div class="tool-panel" id="tool-pa">
+  <div class="tool-panel active" id="tool-pa">
     <div class="cred-info"><span class="tag">RAB Rev.10</span>§ 8.1 廣播詞 · 離線可用 · <span style="color:#93c5fd;font-weight:700">■</span> OFP自動帶入 <span style="color:#fbbf24;font-weight:700">■</span> 手動填入（點擊修改）</div>
 
     <!-- 機長姓名 -->
@@ -473,20 +473,334 @@ calcFDP();
 let paType = 'welcome';
 let paV = {};
 
-// Timezone offsets (UTC+X) for common Starlux destinations
+// Timezone offsets (UTC+X) for fallback — main path uses IANA_TZ below
 const TZ_MAP = {
-  RCTP:8, RCSS:8, RCFG:8, RCKH:8,              // Taiwan
-  RJTT:9, RJBB:9, RJFF:9, ROAH:9, RJCC:9,      // Japan
+  RCTP:8, RCSS:8, RCFG:8, RCKH:8,
+  RJAA:9, RJTT:9, RJBB:9, RJFF:9, ROAH:9, RJCC:9,
   RJOO:9, RJNS:9, RJGG:9, RJSN:9, RJOA:9,
-  RKSI:9, RKSS:9,                                // Korea
-  WMKK:8, WBKK:8,                               // Malaysia
-  VVTS:7, VTBS:7, VTBD:7,                       // Vietnam / Thailand
-  RPLL:8, RPVM:8,                               // Philippines
-  WSSS:8,                                        // Singapore
-  WADD:8, WRRR:8,                               // Bali
-  VHHH:8,                                        // Hong Kong
-  ZSPD:8, ZGGG:8, ZBAA:8, ZUUU:8,              // China
+  RKSI:9, RKSS:9,
+  WMKK:8, WBKK:8,
+  VVTS:7, VTBS:7, VTBD:7,
+  RPLL:8, RPVM:8,
+  WSSS:8,
+  WADD:8, WRRR:8,
+  VHHH:8,
+  ZSPD:8, ZGGG:8, ZBAA:8, ZUUU:8,
 };
+
+// IANA timezone names — DST-aware via Intl API
+const IANA_TZ = {
+  // Taiwan
+  RCTP:'Asia/Taipei', RCSS:'Asia/Taipei', RCKH:'Asia/Taipei', RCFG:'Asia/Taipei',
+  RCQC:'Asia/Taipei', RCBS:'Asia/Taipei',
+  // Japan
+  RJAA:'Asia/Tokyo', RJTT:'Asia/Tokyo', RJBB:'Asia/Tokyo', RJFF:'Asia/Tokyo',
+  ROAH:'Asia/Tokyo', RJCC:'Asia/Tokyo', RJOO:'Asia/Tokyo', RJNS:'Asia/Tokyo',
+  RJGG:'Asia/Tokyo', RJSN:'Asia/Tokyo', RJOA:'Asia/Tokyo', RJCB:'Asia/Tokyo',
+  RJOB:'Asia/Tokyo', RODN:'Asia/Tokyo', ROKJ:'Asia/Tokyo',
+  // Korea
+  RKSI:'Asia/Seoul', RKSS:'Asia/Seoul', RKPK:'Asia/Seoul',
+  // Malaysia
+  WMKK:'Asia/Kuala_Lumpur', WBKK:'Asia/Kuala_Lumpur', WMBT:'Asia/Kuala_Lumpur',
+  WBSB:'Asia/Brunei',
+  // Vietnam
+  VVTS:'Asia/Ho_Chi_Minh', VVNB:'Asia/Bangkok', VVDN:'Asia/Ho_Chi_Minh',
+  // Thailand
+  VTBS:'Asia/Bangkok', VTBD:'Asia/Bangkok', VTSP:'Asia/Bangkok', VTSM:'Asia/Bangkok',
+  VTCC:'Asia/Bangkok',
+  // Philippines
+  RPLL:'Asia/Manila', RPVM:'Asia/Manila', RPVB:'Asia/Manila', RPVA:'Asia/Manila',
+  // Singapore
+  WSSS:'Asia/Singapore',
+  // Indonesia
+  WADD:'Asia/Makassar', WRRR:'Asia/Makassar', WIII:'Asia/Jakarta',
+  WIDD:'Asia/Jakarta', WRBB:'Asia/Makassar',
+  // Hong Kong / Macau
+  VHHH:'Asia/Hong_Kong', VMMC:'Asia/Macau',
+  // China
+  ZSPD:'Asia/Shanghai', ZSSS:'Asia/Shanghai', ZGGG:'Asia/Shanghai',
+  ZBAA:'Asia/Shanghai', ZUCK:'Asia/Shanghai', ZUUU:'Asia/Shanghai',
+  ZGSZ:'Asia/Shanghai', ZBTJ:'Asia/Shanghai', ZSHC:'Asia/Shanghai',
+  ZSNJ:'Asia/Shanghai', ZHWH:'Asia/Shanghai', ZGHA:'Asia/Shanghai',
+  ZPPP:'Asia/Shanghai', ZLXY:'Asia/Shanghai', ZUCK:'Asia/Shanghai',
+  // India
+  VIDP:'Asia/Kolkata', VABB:'Asia/Kolkata', VOMM:'Asia/Kolkata',
+  // Cambodia / Laos
+  VDPP:'Asia/Phnom_Penh', VLVT:'Asia/Vientiane',
+  // Myanmar
+  VYYY:'Asia/Rangoon',
+  // Nepal
+  VNKT:'Asia/Kathmandu',
+  // Middle East
+  OMDB:'Asia/Dubai', OMAA:'Asia/Dubai',
+  OTHH:'Asia/Qatar', OEJN:'Asia/Riyadh', OERK:'Asia/Riyadh',
+  OEDF:'Asia/Riyadh',
+  // Europe
+  EGLL:'Europe/London', EGKK:'Europe/London', EGSS:'Europe/London',
+  LFPG:'Europe/Paris', LFPO:'Europe/Paris',
+  EDDF:'Europe/Berlin', EDDM:'Europe/Berlin', EDDL:'Europe/Berlin',
+  EHAM:'Europe/Amsterdam',
+  LEMD:'Europe/Madrid', LEBL:'Europe/Madrid',
+  LIRF:'Europe/Rome', LIMC:'Europe/Rome',
+  LSZH:'Europe/Zurich', EBBR:'Europe/Brussels', LOWW:'Europe/Vienna',
+  EPWA:'Europe/Warsaw', LKPR:'Europe/Prague', LHBP:'Europe/Budapest',
+  // Turkey
+  LTFM:'Europe/Istanbul', LTBA:'Europe/Istanbul',
+  // Africa
+  HECA:'Africa/Cairo', FAOR:'Africa/Johannesburg',
+  // Australia / NZ
+  YSSY:'Australia/Sydney', YMML:'Australia/Melbourne',
+  YBBN:'Australia/Brisbane', YPER:'Australia/Perth',
+  NZAA:'Pacific/Auckland', NZCH:'Pacific/Auckland',
+  // Pacific
+  PGUM:'Pacific/Guam', PGUA:'Pacific/Guam',
+  // USA
+  KSEA:'America/Los_Angeles', KLAX:'America/Los_Angeles',
+  KSFO:'America/San_Francisco',
+  KLAX:'America/Los_Angeles',
+  KJFK:'America/New_York',  KEWR:'America/New_York',
+  KORD:'America/Chicago',   KDFW:'America/Chicago',
+  KIAH:'America/Chicago',   KATL:'America/New_York',
+  KDEN:'America/Denver',    KLAS:'America/Los_Angeles',
+  KPHX:'America/Phoenix',   KSNA:'America/Los_Angeles',
+  PHOG:'Pacific/Honolulu',  PHNL:'Pacific/Honolulu',
+  PANC:'America/Anchorage',
+  // Canada
+  CYVR:'America/Vancouver', CYYZ:'America/Toronto',
+  CYYC:'America/Edmonton',  CYEG:'America/Edmonton',
+};
+
+// IATA → ICAO (for timezone + name lookup)
+const IATA_TO_ICAO = {
+  // Taiwan
+  TPE:'RCTP', KHH:'RCKH', RMQ:'RCMQ', TNN:'RCSQ', HUN:'RCBS',
+  // Japan
+  NRT:'RJAA', HND:'RJTT', KIX:'RJBB', FUK:'RJFF', OKA:'ROAH',
+  CTS:'RJCC', NGO:'RJGG', SDJ:'RJSS', KOJ:'RJFK', OIT:'RJFO',
+  KMQ:'RJNK', TOY:'RJNT', TYO:'RJTT', MMY:'ROMY', ISG:'ROIG',
+  // Korea
+  ICN:'RKSI', GMP:'RKSS', PUS:'RKPK',
+  // Malaysia
+  KUL:'WMKK', BKI:'WBKK', PEN:'WMKP', JHB:'WMKJ',
+  LGK:'WMKL', KCH:'WBGG', MYY:'WBGR', BWN:'WBSB',
+  // Vietnam
+  SGN:'VVTS', HAN:'VVNB', DAD:'VVDN',
+  // Thailand
+  BKK:'VTBS', DMK:'VTBD', HKT:'VTSP', USM:'VTSM', CNX:'VTCC',
+  HDY:'VTSS',
+  // Philippines
+  MNL:'RPLL', CEB:'RPVM', ILO:'RPVI', DVO:'RPMD', KLO:'RPVK',
+  // Singapore
+  SIN:'WSSS',
+  // Indonesia
+  DPS:'WADD', CGK:'WIII', SUB:'WARR', MDC:'WAMM',
+  // Hong Kong / Macau
+  HKG:'VHHH', MFM:'VMMC',
+  // China
+  PVG:'ZSPD', SHA:'ZSSS', CAN:'ZGGG', PEK:'ZBAA',
+  CTU:'ZUUU', SZX:'ZGSZ', TJN:'ZBTJ', HGH:'ZSHC',
+  NKG:'ZSNJ', WUH:'ZHWH', CSX:'ZGHA', KMG:'ZPPP',
+  XIY:'ZLXY', CKG:'ZUCK',
+  // India
+  DEL:'VIDP', BOM:'VABB', MAA:'VOMM',
+  // Cambodia / Laos
+  PNH:'VDPP', REP:'VSRR', VTE:'VLVT',
+  // Myanmar
+  RGN:'VYYY',
+  // Nepal
+  KTM:'VNKT',
+  // Middle East
+  DXB:'OMDB', AUH:'OMAA', DOH:'OTHH', JED:'OEJN', RUH:'OERK',
+  DMM:'OEDF',
+  // Europe
+  LHR:'EGLL', LGW:'EGKK', STN:'EGSS',
+  CDG:'LFPG', ORY:'LFPO',
+  FRA:'EDDF', MUC:'EDDM', DUS:'EDDL',
+  AMS:'EHAM',
+  MAD:'LEMD', BCN:'LEBL',
+  FCO:'LIRF', MXP:'LIMC',
+  ZRH:'LSZH', BRU:'EBBR', VIE:'LOWW',
+  WAW:'EPWA', PRG:'LKPR', BUD:'LHBP',
+  // Turkey
+  IST:'LTFM', SAW:'LTFJ',
+  // Africa
+  CAI:'HECA', JNB:'FAOR',
+  // Australia / NZ
+  SYD:'YSSY', MEL:'YMML', BNE:'YBBN', PER:'YPER',
+  AKL:'NZAA', CHC:'NZCH',
+  // Pacific
+  GUM:'PGUM',
+  // USA
+  SEA:'KSEA', LAX:'KLAX', SFO:'KSFO', JFK:'KJFK',
+  EWR:'KEWR', ORD:'KORD', DFW:'KDFW', IAH:'KIAH',
+  ATL:'KATL', DEN:'KDEN', LAS:'KLAS', PHX:'KPHX',
+  SNA:'KSNA', HNL:'PHNL', OGG:'PHOG', ANC:'PANC',
+  // Canada
+  YVR:'CYVR', YYZ:'CYYZ', YYC:'CYYC', YEG:'CYEG',
+};
+
+// IATA → [English official name, Chinese official name]
+const AIRPORT_FULL = {
+  // Taiwan
+  TPE: ['Taipei/Taoyuan International Airport',                    '桃園國際機場'],
+  KHH: ['Kaohsiung International Airport',                         '高雄國際機場'],
+  RMQ: ['Taichung International Airport',                          '臺中國際機場'],
+  TNN: ['Tainan International Airport',                            '臺南機場'],
+  // Japan
+  NRT: ['Tokyo/Narita International Airport',                      '東京成田國際機場'],
+  HND: ['Tokyo/Haneda International Airport',                      '東京羽田國際機場'],
+  KIX: ['Osaka/Kansai International Airport',                      '大阪關西國際機場'],
+  FUK: ['Fukuoka Airport',                                         '福岡機場'],
+  OKA: ['Naha Airport',                                            '那霸機場'],
+  CTS: ['Sapporo/New Chitose Airport',                             '札幌新千歲機場'],
+  NGO: ['Nagoya/Chubu Centrair International Airport',             '名古屋中部國際機場'],
+  SDJ: ['Sendai Airport',                                          '仙台機場'],
+  KOJ: ['Kagoshima Airport',                                       '鹿兒島機場'],
+  OIT: ['Oita Airport',                                            '大分機場'],
+  MMY: ['Miyako Airport',                                          '宮古機場'],
+  ISG: ['Ishigaki Airport',                                        '石垣機場'],
+  // Korea
+  ICN: ['Seoul/Incheon International Airport',                     '首爾仁川國際機場'],
+  GMP: ['Seoul/Gimpo International Airport',                       '首爾金浦國際機場'],
+  PUS: ['Busan/Gimhae International Airport',                      '釜山金海國際機場'],
+  // Malaysia
+  KUL: ['Kuala Lumpur International Airport',                      '吉隆坡國際機場'],
+  BKI: ['Kota Kinabalu International Airport',                     '哥打基納巴魯機場'],
+  PEN: ['Penang International Airport',                            '檳城國際機場'],
+  JHB: ['Johor Bahru/Senai International Airport',                 '柔佛巴魯士乃機場'],
+  LGK: ['Langkawi International Airport',                          '蘭卡威國際機場'],
+  BWN: ['Brunei International Airport',                            '汶萊國際機場'],
+  // Vietnam
+  SGN: ['Ho Chi Minh City/Tan Son Nhat International Airport',     '胡志明市新山一國際機場'],
+  HAN: ['Hanoi/Noi Bai International Airport',                     '河內內排國際機場'],
+  DAD: ['Da Nang International Airport',                           '峴港國際機場'],
+  // Thailand
+  BKK: ['Bangkok/Suvarnabhumi International Airport',              '曼谷素萬那普國際機場'],
+  DMK: ['Bangkok/Don Mueang International Airport',                '曼谷廊曼國際機場'],
+  HKT: ['Phuket International Airport',                            '普吉島國際機場'],
+  CNX: ['Chiang Mai International Airport',                        '清邁國際機場'],
+  USM: ['Koh Samui Airport',                                       '蘇美島機場'],
+  HDY: ['Hat Yai International Airport',                           '合艾國際機場'],
+  // Philippines
+  MNL: ['Manila/Ninoy Aquino International Airport',               '馬尼拉尼諾依‧艾奎諾國際機場'],
+  CEB: ['Cebu/Mactan-Cebu International Airport',                  '宿霧麥克坦國際機場'],
+  ILO: ['Iloilo International Airport',                            '怡朗國際機場'],
+  DVO: ['Davao/Francisco Bangoy International Airport',            '達沃機場'],
+  // Singapore
+  SIN: ['Singapore/Changi Airport',                                '新加坡樟宜機場'],
+  // Indonesia
+  DPS: ['Bali/Ngurah Rai International Airport',                   '峇里島努拉萊國際機場'],
+  CGK: ['Jakarta/Soekarno-Hatta International Airport',            '雅加達蘇加諾-哈達國際機場'],
+  SUB: ['Surabaya/Juanda International Airport',                   '泗水朱安達國際機場'],
+  // Hong Kong / Macau
+  HKG: ['Hong Kong International Airport',                         '香港國際機場'],
+  MFM: ['Macau International Airport',                             '澳門國際機場'],
+  // China
+  PVG: ['Shanghai/Pudong International Airport',                   '上海浦東國際機場'],
+  SHA: ['Shanghai/Hongqiao International Airport',                 '上海虹橋國際機場'],
+  CAN: ['Guangzhou/Baiyun International Airport',                  '廣州白雲國際機場'],
+  PEK: ['Beijing/Capital International Airport',                   '北京首都國際機場'],
+  PKX: ['Beijing/Daxing International Airport',                    '北京大興國際機場'],
+  CTU: ['Chengdu/Tianfu International Airport',                    '成都天府國際機場'],
+  SZX: ['Shenzhen/Bao\'an International Airport',                  '深圳寶安國際機場'],
+  HGH: ['Hangzhou/Xiaoshan International Airport',                 '杭州蕭山國際機場'],
+  NKG: ['Nanjing/Lukou International Airport',                     '南京祿口國際機場'],
+  WUH: ['Wuhan/Tianhe International Airport',                      '武漢天河國際機場'],
+  CSX: ['Changsha/Huanghua International Airport',                 '長沙黃花國際機場'],
+  KMG: ['Kunming/Changshui International Airport',                 '昆明長水國際機場'],
+  XIY: ['Xi\'an/Xianyang International Airport',                   '西安咸陽國際機場'],
+  CKG: ['Chongqing/Jiangbei International Airport',                '重慶江北國際機場'],
+  // India
+  DEL: ['New Delhi/Indira Gandhi International Airport',           '新德里英迪拉·甘地國際機場'],
+  BOM: ['Mumbai/Chhatrapati Shivaji Maharaj International Airport','孟買賈特拉帕蒂·希瓦吉機場'],
+  // Cambodia / Laos
+  PNH: ['Phnom Penh International Airport',                        '金邊國際機場'],
+  REP: ['Siem Reap-Angkor International Airport',                  '暹粒吳哥國際機場'],
+  VTE: ['Vientiane/Wattay International Airport',                  '永珍瓦岱國際機場'],
+  // Myanmar
+  RGN: ['Yangon International Airport',                            '仰光國際機場'],
+  // Nepal
+  KTM: ['Kathmandu/Tribhuvan International Airport',               '加德滿都特里布萬國際機場'],
+  // Middle East
+  DXB: ['Dubai International Airport',                             '杜拜國際機場'],
+  AUH: ['Abu Dhabi International Airport',                         '阿布達比國際機場'],
+  DOH: ['Hamad International Airport',                             '哈馬德國際機場'],
+  JED: ['Jeddah/King Abdulaziz International Airport',             '吉達阿卜杜勒阿齊茲國王機場'],
+  RUH: ['Riyadh/King Khalid International Airport',                '利雅德哈立德國王國際機場'],
+  // Europe
+  LHR: ['London/Heathrow Airport',                                 '倫敦希斯洛機場'],
+  LGW: ['London/Gatwick Airport',                                  '倫敦蓋威克機場'],
+  CDG: ['Paris/Charles de Gaulle Airport',                         '巴黎戴高樂機場'],
+  FRA: ['Frankfurt Airport',                                        '法蘭克福機場'],
+  MUC: ['Munich Airport',                                          '慕尼黑機場'],
+  AMS: ['Amsterdam/Schiphol Airport',                              '阿姆斯特丹史基浦機場'],
+  MAD: ['Madrid/Adolfo Suárez Barajas Airport',                   '馬德里巴拉哈斯機場'],
+  BCN: ['Barcelona/El Prat Airport',                               '巴塞隆納普拉特機場'],
+  FCO: ['Rome/Fiumicino Airport',                                  '羅馬菲烏米奇諾機場'],
+  MXP: ['Milan/Malpensa Airport',                                  '米蘭馬爾彭薩機場'],
+  ZRH: ['Zurich Airport',                                          '蘇黎世機場'],
+  BRU: ['Brussels Airport',                                        '布魯塞爾機場'],
+  VIE: ['Vienna International Airport',                            '維也納國際機場'],
+  // Turkey
+  IST: ['Istanbul Airport',                                         '伊斯坦堡機場'],
+  // Africa
+  CAI: ['Cairo International Airport',                             '開羅國際機場'],
+  JNB: ['Johannesburg/O.R. Tambo International Airport',           '約翰尼斯堡奧比‧坦博機場'],
+  // Australia / NZ
+  SYD: ['Sydney/Kingsford Smith Airport',                          '雪梨金斯福德史密斯機場'],
+  MEL: ['Melbourne Airport',                                        '墨爾本機場'],
+  BNE: ['Brisbane Airport',                                         '布里斯本機場'],
+  PER: ['Perth Airport',                                            '伯斯機場'],
+  AKL: ['Auckland Airport',                                         '奧克蘭機場'],
+  // Pacific
+  GUM: ['Guam/A.B. Won Pat International Airport',                 '關島機場'],
+  // USA
+  SEA: ['Seattle/Tacoma International Airport',                    '西雅圖塔科馬國際機場'],
+  LAX: ['Los Angeles International Airport',                       '洛杉磯國際機場'],
+  SFO: ['San Francisco International Airport',                     '舊金山國際機場'],
+  JFK: ['New York/John F. Kennedy International Airport',          '紐約甘迺迪國際機場'],
+  EWR: ['New York/Newark Liberty International Airport',           '紐華克自由國際機場'],
+  ORD: ['Chicago/O\'Hare International Airport',                   '芝加哥奧黑爾國際機場'],
+  DFW: ['Dallas/Fort Worth International Airport',                 '達拉斯沃斯堡國際機場'],
+  ATL: ['Atlanta/Hartsfield-Jackson International Airport',        '亞特蘭大哈茨菲爾德-傑克遜機場'],
+  DEN: ['Denver International Airport',                            '丹佛國際機場'],
+  LAS: ['Las Vegas/Harry Reid International Airport',              '拉斯維加斯哈里‧里德機場'],
+  HNL: ['Honolulu International Airport',                          '檀香山國際機場'],
+  ANC: ['Anchorage/Ted Stevens International Airport',             '安克拉治機場'],
+  // Canada
+  YVR: ['Vancouver International Airport',                         '溫哥華國際機場'],
+  YYZ: ['Toronto/Pearson International Airport',                   '多倫多皮爾遜國際機場'],
+};
+
+function getTimezoneOffset(dest) {
+  const icao = IATA_TO_ICAO[dest] || dest;
+  return TZ_MAP[icao] ?? 8;
+}
+
+// DST-aware: use Intl API when IANA timezone is available
+function utcToLocal(utcHHMM, dest) {
+  if (!utcHHMM || utcHHMM === '--:--') return '--:--';
+  const icao = IATA_TO_ICAO[dest] || dest;
+  const tz = IANA_TZ[icao];
+  if (tz) {
+    try {
+      const today = new Date();
+      const [h, m] = utcHHMM.split(':').map(Number);
+      const utcDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), h, m));
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(utcDate);
+      const hh = parts.find(p => p.type === 'hour')?.value  || '00';
+      const mm = parts.find(p => p.type === 'minute')?.value || '00';
+      return `${hh === '24' ? '00' : hh}:${mm}`;
+    } catch(e) {}
+  }
+  // Fallback: fixed offset
+  const offset = getTimezoneOffset(dest);
+  const [h, m] = utcHHMM.split(':').map(Number);
+  const total = ((h * 60 + m + offset * 60) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
 
 function initPAVars() {
   const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
@@ -505,13 +819,19 @@ function initPAVars() {
   const ete  = t.ete || o.ete || '';
   const sta  = t.staLocal || o.staLocal || '';
 
+  // Look up airport name: try IATA first, then ICAO→IATA reverse, then raw code
+  const ICAO_TO_IATA = Object.fromEntries(Object.entries(IATA_TO_ICAO).map(([ia, ic]) => [ic, ia]));
+  const destIATA = dest.length === 4 ? (ICAO_TO_IATA[dest] || dest) : dest;
+  const destNames = AIRPORT_FULL[destIATA] || AIRPORT_FULL[dest] || [];
   paV = {
-    flt:    flt   || '',
-    dest:   dest  || '',
-    eteEN:  pa_eteEN(ete),
-    eteZH:  pa_eteZH(ete),
-    alt:    pa_flFeet(cruiseAlt),
-    staRaw: sta,
+    flt:     flt  || '',
+    dest:    dest || '',
+    destEN:  destNames[0] || dest,
+    destZH:  destNames[1] || dest,
+    eteEN:   pa_eteEN(ete),
+    eteZH:   pa_eteZH(ete),
+    alt:     pa_flFeet(cruiseAlt),
+    staRaw:  sta,
   };
 }
 
@@ -545,27 +865,36 @@ function pa_to24hm(raw) {
   if (/^\d{3}$/.test(s)) return '0' + s[0] + ':' + s.slice(1);
   return '';
 }
-// Get destination local time (UTC + offset)
-function getDestLocal(icao) {
-  const offset = TZ_MAP[icao] || 8;
+// Get destination local time — DST-aware via Intl API
+// dest: IATA code (e.g. "NRT") or ICAO code (e.g. "RJAA")
+function getDestLocal(dest) {
+  const icao = IATA_TO_ICAO[dest] || dest;
+  const tz   = IANA_TZ[icao];
+  const now  = new Date();
+  if (tz) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        hour: '2-digit', minute: '2-digit', hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+      }).formatToParts(now);
+      const get = t => parts.find(p => p.type === t)?.value || '00';
+      const hh = get('hour') === '24' ? '00' : get('hour');
+      const mi = get('minute');
+      const yr = get('year'), mo = get('month'), dy = get('day');
+      const dow = new Date(`${yr}-${mo}-${dy}T12:00:00`).getDay();
+      return { time: `${hh}:${mi}`, date: `${yr}-${mo}-${dy}`, dow };
+    } catch(e) {}
+  }
+  // Fallback: fixed offset from TZ_MAP
+  const offset = TZ_MAP[icao] ?? getTimezoneOffset(dest);
   const ms = Date.now() + offset * 3600000;
   const ld = new Date(ms);
   return {
-    time:  String(ld.getUTCHours()).padStart(2,'0') + ':' + String(ld.getUTCMinutes()).padStart(2,'0'),
-    date:  ld.toISOString().slice(0,10),
-    dow:   ld.getUTCDay(),
-    d:     ld.getUTCDate(),
-    mo:    ld.getUTCMonth(),
-    yr:    ld.getUTCFullYear(),
+    time: String(ld.getUTCHours()).padStart(2,'0') + ':' + String(ld.getUTCMinutes()).padStart(2,'0'),
+    date: ld.toISOString().slice(0,10),
+    dow:  ld.getUTCDay(),
   };
-}
-// 24h HH:MM → 12h AM/PM (for English PA)
-function fmt12h(t) {
-  if (!t || t==='--:--') return '—';
-  const [h, m] = t.split(':').map(Number);
-  const ap = h >= 12 ? 'p.m.' : 'a.m.';
-  const h12 = h > 12 ? h-12 : h === 0 ? 12 : h;
-  return `${h12}:${String(m).padStart(2,'0')} ${ap}`;
 }
 
 // ── Span factories ────────────────────────────────────────
@@ -610,8 +939,8 @@ function getPAContent(id) {
 
   const T = {
     welcome: {
-      en: `"Hello everyone, this is Captain ${capSpan} speaking. On behalf of [${pF('the cockpit crew')} / all the crew], welcome onboard STARLUX flight number ${pA('flt')} to ${pA('dest')}. We should be ready for departure in [${pF('XX','wmin')} minutes / just a few minutes]. Our flight time is ${pA('eteEN','__ hrs __ min')}, with an initial cruising altitude of ${pA('alt')} feet. Once again, please make yourself comfortable and enjoy the flight with us. Thank you."`,
-      zh: `「各位旅客您好，我是機長 ${capSpan}。謹代表【${pF('駕艙組員')}／全體空勤組員】，歡迎您搭乘星宇航空 ${pA('flt')} 班機前往 ${pA('dest')}。我們預計 ${pF('XX','wmin')} 分鐘後出發。本次飛行時間約 ${pA('eteZH','__小時__分')}，初始巡航高度 ${pA('alt')} 英呎。再次誠摯歡迎您搭乘，祝您旅途愉快，謝謝。」`,
+      en: `"Hello everyone, this is Captain ${capSpan} speaking. On behalf of [${pF('the cockpit crew')} / all the crew], welcome onboard STARLUX flight number ${pA('flt')} to ${pA('destEN')}. We should be ready for departure in [${pF('XX','wmin')} minutes / just a few minutes]. Our flight time is ${pA('eteEN','__ hrs __ min')}, with an initial cruising altitude of ${pA('alt')} feet. Once again, please make yourself comfortable and enjoy the flight with us. Thank you."`,
+      zh: `「各位旅客您好，我是機長 ${capSpan}。謹代表【${pF('駕艙組員')}／全體空勤組員】，歡迎您搭乘星宇航空 ${pA('flt')} 班機前往 ${pA('destZH')}。我們預計 ${pF('XX','wmin')} 分鐘後出發。本次飛行時間約 ${pA('eteZH','__小時__分')}，初始巡航高度 ${pA('alt')} 英呎。再次誠摯歡迎您搭乘，祝您旅途愉快，謝謝。」`,
     },
     delay: {
       en: `"Hello everyone, this is your captain speaking. Due to ${pF('（延誤原因）')}, we might be delayed up to ${pF('XX','dmin')} minutes before takeoff. I will keep you updated if longer delay happens. Thank you for your patient."`,
@@ -632,12 +961,12 @@ function getPAContent(id) {
       zh: `「各位旅客您好，歡迎登機。我是您的機長。今天我們需要完成一項飛機防除冰程序。<br><br>我們將在地面停留約 ${pF('OO','imin')} 分鐘。<br><br>過程中將對飛機噴灑防除冰液，期間可能會有些聲音，客艙內也可能有些許特殊氣味。此程序為例行作業，應在幾分鐘內完成。感謝您的注意。」`,
     },
     ga: {
-      en: `"May we have your attention. This is your Captain speaking. We were unable to complete our approach to landing at ${pA('dest')}. We have just completed a routine go-around procedure and, shortly, we shall be starting another approach to land. We will be landing in ${pF('OO','gamin')} minutes. Thank you for your attention."`,
-      zh: `「請注意，我是您的機長。我們未能完成在 ${pA('dest')} 機場的降落進場。我們剛完成一次例行重飛程序，即將重新進行進場降落。預計 ${pF('OO','gamin')} 分鐘後降落。感謝您的注意。」`,
+      en: `"May we have your attention. This is your Captain speaking. We were unable to complete our approach to landing at ${pA('destEN')}. We have just completed a routine go-around procedure and, shortly, we shall be starting another approach to land. We will be landing in ${pF('OO','gamin')} minutes. Thank you for your attention."`,
+      zh: `「請注意，我是您的機長。我們未能完成在 ${pA('destZH')} 的降落進場。我們剛完成一次例行重飛程序，即將重新進行進場降落。預計 ${pF('OO','gamin')} 分鐘後降落。感謝您的注意。」`,
     },
     divert: {
-      en: `"May we have your attention. This is your Captain speaking. The weather at ${pA('dest')} airport is below landing minimum, we are unable to land at this moment. We shall divert to ${pF('（備降機場）')} airport, and we can wait for the weather at ${pA('dest')} airport to improve."`,
-      zh: `「請注意，我是您的機長。目的地 ${pA('dest')} 機場天氣低於降落最低標準，我們目前無法降落。我們將轉降至 ${pF('（備降機場）')} 機場，並等待 ${pA('dest')} 機場天氣改善。」`,
+      en: `"May we have your attention. This is your Captain speaking. The weather at ${pA('destEN')} is below landing minimum, we are unable to land at this moment. We shall divert to ${pF('（備降機場）')} airport, and we can wait for the weather at ${pA('destEN')} to improve."`,
+      zh: `「請注意，我是您的機長。目的地 ${pA('destZH')} 天氣低於降落最低標準，我們目前無法降落。我們將轉降至 ${pF('（備降機場）')} 機場，並等待 ${pA('destZH')} 天氣改善。」`,
     },
     cat: {
       en: pSub('i. 正常情況（無傷亡）') +
@@ -645,13 +974,13 @@ function getPAContent(id) {
         pSub('ii. 如有客艙損壞或傷亡') +
         `"The cabin crew are now making every effort to safeguard the condition of everyone onboard. If you need assistance, the crew will help you as soon as possible. We appreciate your cooperation to stay in your seats until the seatbelt sign is turned off. After an assessment of conditions onboard are completed, I will provide you with more information regarding the status of the flight. Your cooperation and understanding are appreciated to ensure the safety of all onboard. Thank you."` +
         pSub('iii. 後續仍預計有輕度亂流（可選接續）') +
-        `"However, it is possible that we may experience some light turbulence [later / during descent]. I will provide you with an update before we start our descent. We invite you to relax and enjoy the remainder of the flight to ${pA('dest')}. Thank you."`,
+        `"However, it is possible that we may experience some light turbulence [later / during descent]. I will provide you with an update before we start our descent. We invite you to relax and enjoy the remainder of the flight to ${pA('destEN')}. Thank you."`,
       zh: pSub('i. 正常情況（無傷亡）') +
         `「各位旅客您好，我是您的機長。我們剛遭遇一片【${pF('中度')}／嚴重】晴空亂流。飛機狀況安全，所有系統運作正常。此類亂流無法被我們的儀器事先偵測，屬突發狀況。感謝您配合留在座位並繫好安全帶，直到安全帶指示燈熄滅。」` +
         pSub('ii. 如有客艙損壞或傷亡') +
         `「客艙組員正全力確保機上所有人員安全。若您需要協助，組員將盡快前往協助。感謝您配合留在座位，直到安全帶指示燈熄滅。完成機上狀況評估後，我將提供更多關於本次航班的最新資訊。感謝您的配合與理解，謝謝。」` +
         pSub('iii. 後續仍預計有輕度亂流') +
-        `「然而，在【之後的飛行途中／下降過程中】仍可能出現些許輕度亂流。我將在開始下降前再次更新資訊。感謝您放鬆享受前往 ${pA('dest')} 的剩餘旅程，謝謝。」`,
+        `「然而，在【之後的飛行途中／下降過程中】仍可能出現些許輕度亂流。我將在開始下降前再次更新資訊。感謝您放鬆享受前往 ${pA('destZH')} 的剩餘旅程，謝謝。」`,
     },
     unruly: {
       en: `"This is your captain speaking. The passenger at ${pF('（Seat No.）')}, we have already warned you about your unacceptable behavior and requested you to moderate it.<br><br>This is the FINAL WARNING that your unruly behavior has violated the above laws and regulations. If the unruly behavior remains, it may be committed a criminal offence, and you may be restrained and handed over to the aviation security authorities. Punishment may be imposed against you, including but not limited to imprisonment, detention or monetary fine.<br><br>If there is any diversion, stop over or delay caused by your unruly behavior, STARLUX Airlines shall be entitled to request you for any and all losses, expenses and damages incurred from such circumstances. PLEASE NOW COOPERATE WITH OUR CREW MEMBERS IN AN AMICABLE WAY."`,
@@ -684,13 +1013,24 @@ const WX_OPTIONS = [
   ['windy','強風','💨'],
 ];
 
+let _descentTimer = null;
+
 function renderDescentForm() {
   const inpDiv = document.getElementById('pa-inputs');
   inpDiv.style.display = 'block';
 
-  const loc = getDestLocal(paV.dest || 'RCTP');
-  const etaHM = pa_to24hm(paV.staRaw) || '';
+  // ETA: convert OFP STA (local) back to UTC for the UTC input field
+  const dest = paV.dest || 'RCTP';
+  const offset = getTimezoneOffset(dest);
+  const staLocal = pa_to24hm(paV.staRaw) || '';
+  let etaUTC = '';
+  if (staLocal) {
+    const [h, m] = staLocal.split(':').map(Number);
+    const total = ((h * 60 + m - offset * 60) % 1440 + 1440) % 1440;
+    etaUTC = `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+  }
 
+  const loc = getDestLocal(dest);
   const wxOpts = WX_OPTIONS.map(([en, zh, ic]) =>
     `<option value="${en}|${zh}">${ic} ${zh} (${en})</option>`
   ).join('');
@@ -699,12 +1039,13 @@ function renderDescentForm() {
     <div style="font-size:10px;font-weight:700;color:var(--text3);margin-bottom:12px;letter-spacing:.5px;text-transform:uppercase">🛬 Descent PA 填寫區（廣播稿即時更新）</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">✈️ ETA 降落時間 <span style="font-size:9px;color:#93c5fd">← OFP</span></div>
-        <input type="time" id="pd-eta" style="${INP_STYLE}" value="${etaHM}" onchange="updateDescentPA()" oninput="updateDescentPA()">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">✈️ ETA (UTC) <span style="font-size:9px;color:#93c5fd">← OFP</span></div>
+        <input type="time" id="pd-eta" style="${INP_STYLE}" value="${etaUTC}" onchange="updateDescentPA()" oninput="updateDescentPA()">
+        <div id="pd-eta-local" style="font-size:10px;color:var(--text3);margin-top:3px;padding-left:2px"></div>
       </div>
       <div>
-        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">🕐 目前當地時間 <span style="font-size:9px;color:#22c55e">← 自動</span></div>
-        <input type="time" id="pd-now" style="${INP_STYLE}" value="${loc.time}" onchange="updateDescentPA()" oninput="updateDescentPA()">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:5px">🕐 目前當地時間 <span style="font-size:9px;color:#22c55e">← 即時自動</span></div>
+        <div id="pd-now-display" style="height:44px;font-size:22px;font-weight:800;display:flex;align-items:center;padding:0 14px;background:var(--surface);border-radius:8px;color:var(--green);font-family:'SF Mono',monospace;letter-spacing:1px">${loc.time}</div>
       </div>
     </div>
     <div style="margin-bottom:10px">
@@ -727,12 +1068,48 @@ function renderDescentForm() {
     </div>`;
 
   updateDescentPA();
+
+  // Auto-update local time every 30 seconds
+  if (_descentTimer) clearInterval(_descentTimer);
+  _descentTimer = setInterval(updateDescentPA, 30000);
 }
 
 function updateDescentPA() {
-  const eta24  = (document.getElementById('pd-eta')?.value)  || '--:--';
-  const now24  = (document.getElementById('pd-now')?.value)  || '--:--';
-  const dateSt = (document.getElementById('pd-date')?.value) || '';
+  const dest     = paV.dest || 'RCTP';
+  const destEN   = paV.destEN || dest;
+  const destZH   = paV.destZH || dest;
+
+  // Current local time — auto from device clock + timezone
+  const loc    = getDestLocal(dest);
+  const now24  = loc.time;
+  const nowEl  = document.getElementById('pd-now-display');
+  if (nowEl) nowEl.textContent = now24;
+
+  // ETA: input is UTC, convert to local for display
+  const etaUTC = (document.getElementById('pd-eta')?.value) || '--:--';
+  const etaLocal = utcToLocal(etaUTC, dest);
+  const etaLocalEl = document.getElementById('pd-eta-local');
+  if (etaLocalEl && etaUTC !== '--:--' && etaLocal !== '--:--') {
+    // Calculate actual current UTC offset (DST-aware) for display hint
+    const icao = IATA_TO_ICAO[dest] || dest;
+    const tz = IANA_TZ[icao];
+    let offsetStr = '';
+    if (tz) {
+      try {
+        const nowUtc = new Date();
+        const localMs = new Date(nowUtc.toLocaleString('en-US', { timeZone: tz })).getTime();
+        const diffH = Math.round((localMs - nowUtc.getTime()) / 3600000);
+        offsetStr = `UTC${diffH >= 0 ? '+' : ''}${diffH}`;
+      } catch(e) {}
+    }
+    if (!offsetStr) {
+      const off = getTimezoneOffset(dest);
+      offsetStr = `UTC${off >= 0 ? '+' : ''}${off}`;
+    }
+    etaLocalEl.textContent = `→ 當地時間 ${etaLocal} (${offsetStr})`;
+  }
+
+  const dateSt = (document.getElementById('pd-date')?.value) || loc.date;
   const wxVal  = (document.getElementById('pd-wx')?.value)   || 'clear skies|晴天';
   const tcRaw  = document.getElementById('pd-tc')?.value;
   const tfEl   = document.getElementById('pd-tf');
@@ -742,7 +1119,6 @@ function updateDescentPA() {
 
   const [wxEN, wxZH] = wxVal.split('|');
 
-  // Format date
   const DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const MONS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   const DAYS_ZH = ['日','一','二','三','四','五','六'];
@@ -753,23 +1129,22 @@ function updateDescentPA() {
     dateZH = `${dObj.getUTCMonth()+1}月${dObj.getUTCDate()}日（星期${DAYS_ZH[dObj.getUTCDay()]}）`;
   }
 
-  const dest = paV.dest || '___';
   const tempEN = tc !== null ? `${tc} degree${tc!==1?'s':''} Celsius, which is ${tf} degree${tf!==1?'s':''} Fahrenheit` : '[temperature]';
   const tempZH = tc !== null ? `攝氏 ${tc} 度（華氏 ${tf} 度）` : '[溫度]';
 
   document.getElementById('pa-en').innerHTML =
     `"Hello everyone, this is your captain speaking.<br><br>` +
-    `We are approaching <strong>${dest}</strong> and expect to start our descent in 10 minutes. ` +
-    `We estimate landing at <strong>${fmt12h(eta24)}</strong>. ` +
-    `The current local time in <strong>${dest}</strong> is <strong>${fmt12h(now24)}</strong> on ${dateEN}.<br><br>` +
+    `We are approaching <strong>${destEN}</strong> and expect to start our descent in 10 minutes. ` +
+    `We estimate landing at <strong>${etaLocal}</strong> local time. ` +
+    `The current local time in <strong>${destEN}</strong> is <strong>${now24}</strong> on ${dateEN}.<br><br>` +
     `The present weather at the airport is <strong>${wxEN}</strong> with a temperature of <strong>${tempEN}</strong>.<br><br>` +
     `We certainly hope that you have enjoyed the flight with us, and we look forward to having you onboard another STARLUX flight again very soon. ` +
     `Thank you, and we wish you all a very pleasant journey."`;
 
   document.getElementById('pa-zh').innerHTML =
-    `「各位旅客您好，我是您的機長。我們正接近 <strong>${dest}</strong>，預計約 10 分鐘後開始下降。` +
-    `預計降落時間為當地時間 <strong>${eta24}</strong>。` +
-    `目前 <strong>${dest}</strong> 當地時間 <strong>${now24}</strong>，日期 ${dateZH}。<br><br>` +
+    `「各位旅客您好，我是您的機長。我們正接近 <strong>${destZH}</strong>，預計約 10 分鐘後開始下降。` +
+    `預計降落時間為當地時間 <strong>${etaLocal}</strong>。` +
+    `目前 <strong>${destZH}</strong> 當地時間 <strong>${now24}</strong>，日期 ${dateZH}。<br><br>` +
     `目的地機場目前<strong>${wxZH}</strong>，地面溫度 <strong>${tempZH}</strong>。<br><br>` +
     `感謝您選擇星宇航空，期待再次為您服務。祝您旅途愉快，謝謝。」`;
 }
@@ -779,7 +1154,9 @@ function selPA(btn, id) {
   document.querySelectorAll('.pa9-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   paType = id;
-  // Hide Descent form for all other types
+  localStorage.setItem('pf_pa_type', id);
+  // Clear descent auto-update timer when leaving descent PA
+  if (id !== 'descent' && _descentTimer) { clearInterval(_descentTimer); _descentTimer = null; }
   const inpDiv = document.getElementById('pa-inputs');
   if (inpDiv && id !== 'descent') inpDiv.style.display = 'none';
   renderPAContent();
@@ -819,10 +1196,19 @@ function copyPALang(lang, btn) {
 // ── Initialise ────────────────────────────────────────────
 (function paInit() {
   // Restore saved captain name
-  const saved = localStorage.getItem('pf_captain') || '';
+  const savedCap = localStorage.getItem('pf_captain') || '';
   const capEl = document.getElementById('pa-cap');
-  if (saved && capEl) capEl.value = saved;
+  if (savedCap && capEl) capEl.value = savedCap;
   if (capEl) capEl.addEventListener('input', e => localStorage.setItem('pf_captain', e.target.value));
+
+  // Restore saved PA type
+  const savedType = localStorage.getItem('pf_pa_type') || 'welcome';
+  paType = savedType;
+  const btnToActivate = document.querySelector(`.pa9-btn[onclick*="'${savedType}'"]`);
+  if (btnToActivate) {
+    document.querySelectorAll('.pa9-btn').forEach(b => b.classList.remove('active'));
+    btnToActivate.classList.add('active');
+  }
 
   // Sync listener: when a data-sync span is edited, mirror to paired spans
   ['pa-en','pa-zh'].forEach(divId => {
