@@ -174,19 +174,20 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ── Curfew Countdown ─────────────────────────────────────
-// 資料來源：僅收錄有明確法規依據的機場
-// startUTC / endUTC 為每日宵禁時段（UTC hour），跨午夜時 startUTC > endUTC
-// ⚠️ 以實際 NOTAM / 航空公司 OPS 為準，本資料僅供參考
+// 資料來源：經網路查證有明確法規依據的機場（2026年查證）
+// startL / endL：機場本地時間（時），跨午夜時 startL > endL
+// iana：IANA 時區，用 Intl API 計算，自動處理夏令時
+// ⚠️ 僅供參考，以當日 NOTAM / 航空公司 OPS 為最終依據
 const CURFEW_DB = {
-  // Japan — 國土交通省告示，明確夜間飛行禁止
-  RJAA: { name: '東京成田', iata:'NRT', startUTC:14, endUTC:21, note:'23:00–06:00 JST' },
-  RJBB: { name: '大阪關西', iata:'KIX', startUTC:15, endUTC:21, note:'00:00–06:00 JST' },
-  // Europe — 法規明確的宵禁機場
-  EGLL: { name: '倫敦希斯洛',iata:'LHR', startUTC:23, endUTC:6,  note:'23:00–06:00 UTC (Night Quota)' },
-  EDDF: { name: '法蘭克福', iata:'FRA', startUTC:22, endUTC:4,  note:'23:00–05:00 CET' },
-  // Australia — Airports Act 1996 Section 195
-  YSSY: { name: '雪梨',     iata:'SYD', startUTC:13, endUTC:20, note:'23:00–06:00 AEDT' },
-  YMML: { name: '墨爾本',   iata:'MEL', startUTC:14, endUTC:19, note:'00:00–05:00 AEDT' },
+  // Japan — 國土交通省，硬性禁飛
+  RJAA: { name:'東京成田', iata:'NRT', startL:23, endL:6,  iana:'Asia/Tokyo',           note:'23:00–06:00 JST（硬性禁飛）' },
+  RJFF: { name:'福岡',     iata:'FUK', startL:22, endL:7,  iana:'Asia/Tokyo',           note:'22:00–07:00 JST（硬性禁飛）' },
+  // Australia — Sydney Airport Curfew Act 1995（硬性禁飛）
+  YSSY: { name:'雪梨',     iata:'SYD', startL:23, endL:6,  iana:'Australia/Sydney',     note:'23:00–06:00 AEST/AEDT（Sydney Airport Curfew Act）' },
+  // Europe — 法院判決 / 法規明確
+  EDDF: { name:'法蘭克福', iata:'FRA', startL:23, endL:5,  iana:'Europe/Berlin',        note:'23:00–05:00 CET/CEST（硬性禁飛，00:00起無豁免）' },
+  EHAM: { name:'阿姆斯特丹',iata:'AMS', startL:0,  endL:6,  iana:'Europe/Amsterdam',    note:'00:00–06:00 CET/CEST（2025年起，起飛禁至06:00）' },
+  EGLL: { name:'倫敦希斯洛',iata:'LHR', startL:23, endL:6,  iana:'Europe/London',       note:'23:30–06:00 UTC（Night Quota 配額制，非全面禁飛）' },
 };
 
 // IATA → ICAO reverse for lookup
@@ -194,37 +195,44 @@ const CURFEW_IATA_MAP = Object.fromEntries(
   Object.entries(CURFEW_DB).map(([icao, v]) => [v.iata, icao])
 );
 
-function curfewCountdown(c) {
-  const { startUTC, endUTC } = c;
+// 用 Intl API 取得機場本地時間（自動處理夏令時）
+function getAirportLocalHMS(iana) {
   const now = new Date();
-  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const startMin = startUTC * 60, endMin = endUTC * 60;
-  const pad = n => String(n).padStart(2,'0');
-  let diff, label, active;
+  try {
+    const p = new Intl.DateTimeFormat('en-CA', {
+      timeZone: iana, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+    }).formatToParts(now);
+    const h = parseInt(p.find(x => x.type==='hour').value) % 24;
+    const m = parseInt(p.find(x => x.type==='minute').value);
+    const s = parseInt(p.find(x => x.type==='second').value);
+    return { h, m, s };
+  } catch(e) {
+    return { h: now.getUTCHours(), m: now.getUTCMinutes(), s: now.getUTCSeconds() };
+  }
+}
 
+function curfewCountdown(c) {
+  const { startL, endL, iana } = c;
+  const { h, m, s } = getAirportLocalHMS(iana);
+  const nowMin  = h * 60 + m;
+  const startMin = startL * 60, endMin = endL * 60;
+  const pad = n => String(n).padStart(2,'0');
+
+  let active;
   if (startMin < endMin) {
     active = nowMin >= startMin && nowMin < endMin;
-  } else {
+  } else {               // 跨午夜
     active = nowMin >= startMin || nowMin < endMin;
   }
 
-  if (active) {
-    label = '🔴 宵禁中 · 距結束';
-    const end = new Date(now);
-    end.setUTCHours(endUTC, 0, 0, 0);
-    diff = end - now;
-    if (diff < 0) diff += 86400000;
-  } else {
-    label = '距宵禁開始';
-    const end = new Date(now);
-    end.setUTCHours(startUTC, 0, 0, 0);
-    if (nowMin >= endMin && startMin < endMin) end.setUTCDate(end.getUTCDate() + 1);
-    if (nowMin >= endMin && startMin > endMin) end.setUTCDate(end.getUTCDate() + 1);
-    diff = end - now;
-    if (diff < 0) diff += 86400000;
-  }
-  const hh = Math.floor(diff / 3600000);
-  const mm = Math.floor((diff % 3600000) / 60000);
+  const targetMin = active ? endMin : startMin;
+  let diffMin = targetMin - nowMin;
+  if (diffMin <= 0) diffMin += 1440;
+  const diffMs = diffMin * 60000 - s * 1000;
+  const hh = Math.floor(diffMs / 3600000);
+  const mm = Math.floor((diffMs % 3600000) / 60000);
+
+  const label = active ? '🔴 宵禁中 · 距結束' : '距宵禁開始';
   return { label, time: `${pad(hh)}:${pad(mm)}`, active };
 }
 
