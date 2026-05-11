@@ -174,25 +174,19 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ── Curfew Countdown ─────────────────────────────────────
-// startUTC / endUTC 為每日宵禁時段（UTC hour）
-// 若 startUTC > endUTC 表示跨午夜
+// 資料來源：僅收錄有明確法規依據的機場
+// startUTC / endUTC 為每日宵禁時段（UTC hour），跨午夜時 startUTC > endUTC
+// ⚠️ 以實際 NOTAM / 航空公司 OPS 為準，本資料僅供參考
 const CURFEW_DB = {
-  // Japan
+  // Japan — 國土交通省告示，明確夜間飛行禁止
   RJAA: { name: '東京成田', iata:'NRT', startUTC:14, endUTC:21, note:'23:00–06:00 JST' },
   RJBB: { name: '大阪關西', iata:'KIX', startUTC:15, endUTC:21, note:'00:00–06:00 JST' },
-  RJOO: { name: '大阪伊丹', iata:'ITM', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
-  RJFF: { name: '福岡',     iata:'FUK', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
-  RJCC: { name: '札幌新千歲',iata:'CTS', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
-  ROAH: { name: '那霸',     iata:'OKA', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
-  // Europe
-  EGLL: { name: '倫敦希斯洛',iata:'LHR', startUTC:23, endUTC:6,  note:'23:00–06:00 UTC' },
+  // Europe — 法規明確的宵禁機場
+  EGLL: { name: '倫敦希斯洛',iata:'LHR', startUTC:23, endUTC:6,  note:'23:00–06:00 UTC (Night Quota)' },
   EDDF: { name: '法蘭克福', iata:'FRA', startUTC:22, endUTC:4,  note:'23:00–05:00 CET' },
-  EHAM: { name: '阿姆斯特丹',iata:'AMS', startUTC:22, endUTC:6,  note:'23:00–07:00 CET' },
-  EDDM: { name: '慕尼黑',   iata:'MUC', startUTC:22, endUTC:5,  note:'23:00–06:00 CET' },
-  // Australia
-  YSSY: { name: '雪梨',     iata:'SYD', startUTC:12, endUTC:20, note:'23:00–07:00 AEDT(approx)' },
-  // USA
-  KSEA: { name: '西雅圖塔科馬',iata:'SEA', startUTC:6,  endUTC:14, note:'22:00–06:00 PST(approx)' },
+  // Australia — Airports Act 1996 Section 195
+  YSSY: { name: '雪梨',     iata:'SYD', startUTC:13, endUTC:20, note:'23:00–06:00 AEDT' },
+  YMML: { name: '墨爾本',   iata:'MEL', startUTC:14, endUTC:19, note:'00:00–05:00 AEDT' },
 };
 
 // IATA → ICAO reverse for lookup
