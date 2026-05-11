@@ -336,20 +336,26 @@ select.form-input option { background: var(--card); }
   font-size: 10px; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.5px;
   margin-top: 2px;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
 }
-.arc-nm-badge {
-  font-size: 10px; color: var(--text3);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  border-radius: 8px; padding: 1px 6px;
+.arc-nm-line {
+  font-size: 11px; color: var(--text2);
+  margin-top: 3px; letter-spacing: 0.3px;
 }
-/* Cruise FL shown as small sub-line when ETE is present */
-.arc-fl-sub {
-  font-size: 10px; color: var(--text3); margin-top: 3px;
+/* Cruise FL — prominent blue badge between arc and footer */
+.arc-fl-strip {
+  text-align: center; margin: 2px 0 4px;
 }
-/* Cruise FL shown standalone (when no ETE) */
-.arc-fl-val { font-size: 18px; font-weight: 800; color: var(--text); }
+.arc-fl-chip {
+  display: inline-block;
+  font-size: 13px; font-weight: 800;
+  font-family: 'SF Mono', monospace; letter-spacing: 1.5px;
+  color: #60a5fa;
+  background: rgba(96,165,250,0.1);
+  border: 1px solid rgba(96,165,250,0.28);
+  border-radius: 20px; padding: 2px 14px;
+}
+/* Cruise FL standalone (no ETE) */
+.arc-fl-val { font-size: 18px; font-weight: 800; color: var(--blue); }
 .arc-fl-lbl { font-size: 10px; color: var(--text3); }
 .stat-row { display: flex; gap: 10px; }
 .stat-box {

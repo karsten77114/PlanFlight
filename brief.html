@@ -628,6 +628,7 @@ function renderResult(d) {
     <!-- airplane at peak -->
     <text x="180" y="18" text-anchor="middle" font-size="17" fill="rgba(147,197,253,0.6)">✈</text>
   </svg>
+  ${_fl ? `<div class="arc-fl-strip"><span class="arc-fl-chip">${_fl}</span></div>` : ''}
   <div class="arc-footer">
     <div class="arc-time-block">
       <div class="arc-tl-lbl">STD</div>
@@ -635,9 +636,7 @@ function renderResult(d) {
       ${stdL ? `<div class="arc-tl-loc">${stdL}L</div>` : ''}
     </div>
     <div class="arc-center-stats">
-      ${ete ? `<div class="arc-ete-val">${ete}</div><div class="arc-ete-lbl">Flight Time${o.dist ? `<span class="arc-nm-badge">${o.dist} NM</span>` : ''}</div>` : ''}
-      ${_fl && !ete ? `<div class="arc-fl-val">${_fl}</div><div class="arc-fl-lbl">Cruise FL</div>` : ''}
-      ${_fl && ete  ? `<div class="arc-fl-sub">${_fl}</div>` : ''}
+      ${ete ? `<div class="arc-ete-val">${ete}</div><div class="arc-ete-lbl">Flight Time</div>${o.dist ? `<div class="arc-nm-line">${o.dist} NM</div>` : ''}` : ''}
     </div>
     <div class="arc-time-block right">
       <div class="arc-tl-lbl">STA</div>

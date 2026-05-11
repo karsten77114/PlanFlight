@@ -146,16 +146,7 @@
   <!-- Curfew 倒數 -->
   <div class="card">
     <div class="card-title">宵禁倒數</div>
-    <div class="curfew-card">
-      <div>
-        <div class="curfew-airport">RCTP 桃園</div>
-        <div class="curfew-label">宵禁 23:00–07:00 UTC</div>
-      </div>
-      <div style="text-align:right">
-        <div class="curfew-time" id="curfew-time">--:--</div>
-        <div class="curfew-sub" id="curfew-sub">計算中</div>
-      </div>
-    </div>
+    <div id="curfew-list"></div>
   </div>
 
 </div>
@@ -182,36 +173,144 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── Curfew Countdown (RCTP: curfew 23:00–07:00 UTC) ─────
-function updateCurfew() {
-  const now = new Date();
-  const h = now.getUTCHours();
-  let diff, label;
-  const pad = n => String(n).padStart(2,'0');
+// ── Curfew Countdown ─────────────────────────────────────
+// startUTC / endUTC 為每日宵禁時段（UTC hour）
+// 若 startUTC > endUTC 表示跨午夜
+const CURFEW_DB = {
+  // Japan
+  RJAA: { name: '東京成田', iata:'NRT', startUTC:14, endUTC:21, note:'23:00–06:00 JST' },
+  RJBB: { name: '大阪關西', iata:'KIX', startUTC:15, endUTC:21, note:'00:00–06:00 JST' },
+  RJOO: { name: '大阪伊丹', iata:'ITM', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
+  RJFF: { name: '福岡',     iata:'FUK', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
+  RJCC: { name: '札幌新千歲',iata:'CTS', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
+  ROAH: { name: '那霸',     iata:'OKA', startUTC:13, endUTC:22, note:'22:00–07:00 JST' },
+  // Europe
+  EGLL: { name: '倫敦希斯洛',iata:'LHR', startUTC:23, endUTC:6,  note:'23:00–06:00 UTC' },
+  EDDF: { name: '法蘭克福', iata:'FRA', startUTC:22, endUTC:4,  note:'23:00–05:00 CET' },
+  EHAM: { name: '阿姆斯特丹',iata:'AMS', startUTC:22, endUTC:6,  note:'23:00–07:00 CET' },
+  EDDM: { name: '慕尼黑',   iata:'MUC', startUTC:22, endUTC:5,  note:'23:00–06:00 CET' },
+  // Australia
+  YSSY: { name: '雪梨',     iata:'SYD', startUTC:12, endUTC:20, note:'23:00–07:00 AEDT(approx)' },
+  // USA
+  KSEA: { name: '西雅圖塔科馬',iata:'SEA', startUTC:6,  endUTC:14, note:'22:00–06:00 PST(approx)' },
+};
 
-  if (h >= 7 && h < 23) {
-    // 宵禁前：倒數到 23:00
-    const end = new Date(now);
-    end.setUTCHours(23,0,0,0);
-    diff = end - now;
-    label = '距宵禁開始';
+// IATA → ICAO reverse for lookup
+const CURFEW_IATA_MAP = Object.fromEntries(
+  Object.entries(CURFEW_DB).map(([icao, v]) => [v.iata, icao])
+);
+
+function curfewCountdown(c) {
+  const { startUTC, endUTC } = c;
+  const now = new Date();
+  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const startMin = startUTC * 60, endMin = endUTC * 60;
+  const pad = n => String(n).padStart(2,'0');
+  let diff, label, active;
+
+  if (startMin < endMin) {
+    active = nowMin >= startMin && nowMin < endMin;
   } else {
-    // 宵禁中：倒數到 07:00
-    const end = new Date(now);
-    end.setUTCHours(7,0,0,0);
-    if (h >= 23) end.setUTCDate(end.getUTCDate() + 1);
-    diff = end - now;
-    if (diff < 0) diff += 86400000;
-    label = '距宵禁結束';
+    active = nowMin >= startMin || nowMin < endMin;
   }
 
+  if (active) {
+    label = '🔴 宵禁中 · 距結束';
+    const end = new Date(now);
+    end.setUTCHours(endUTC, 0, 0, 0);
+    diff = end - now;
+    if (diff < 0) diff += 86400000;
+  } else {
+    label = '距宵禁開始';
+    const end = new Date(now);
+    end.setUTCHours(startUTC, 0, 0, 0);
+    if (nowMin >= endMin && startMin < endMin) end.setUTCDate(end.getUTCDate() + 1);
+    if (nowMin >= endMin && startMin > endMin) end.setUTCDate(end.getUTCDate() + 1);
+    diff = end - now;
+    if (diff < 0) diff += 86400000;
+  }
   const hh = Math.floor(diff / 3600000);
   const mm = Math.floor((diff % 3600000) / 60000);
-  document.getElementById('curfew-time').textContent = `${pad(hh)}:${pad(mm)}`;
-  document.getElementById('curfew-sub').textContent = label;
+  return { label, time: `${pad(hh)}:${pad(mm)}`, active };
 }
-setInterval(updateCurfew, 10000);
-updateCurfew();
+
+function curfewCardHTML(c, icao) {
+  const { label, time, active } = curfewCountdown(c);
+  const color = active ? 'var(--red)' : 'var(--green)';
+  return `<div class="curfew-card" style="margin-bottom:8px">
+    <div>
+      <div class="curfew-airport">${c.name} <span style="font-size:12px;font-weight:600;color:var(--blue)">${c.iata}</span></div>
+      <div class="curfew-label" style="margin-top:2px">${label}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${c.note} UTC</div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div class="curfew-time" style="color:${color}">${time}</div>
+    </div>
+  </div>`;
+}
+
+function renderCurfews() {
+  const el = document.getElementById('curfew-list');
+  if (!el) return;
+
+  // 讀取目前航班的 dep/dest
+  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  const dep  = (d?.dep  || d?.ofp?.dep  || '').toUpperCase();
+  const dest = (d?.dest || d?.ofp?.dest || '').toUpperCase();
+
+  // 查找航班相關的宵禁機場（IATA 或 ICAO 都接受）
+  const relIcaos = [];
+  [dep, dest].forEach(code => {
+    if (!code) return;
+    if (CURFEW_DB[code])               relIcaos.push(code);           // ICAO match
+    if (CURFEW_IATA_MAP[code])         relIcaos.push(CURFEW_IATA_MAP[code]); // IATA match
+  });
+  const unique = [...new Set(relIcaos)];
+
+  let html = '';
+  if (unique.length > 0) {
+    html += `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">📍 本航班相關機場</div>`;
+    html += unique.map(icao => curfewCardHTML(CURFEW_DB[icao], icao)).join('');
+  } else {
+    html += `<div style="font-size:12px;color:var(--text3);margin-bottom:10px;padding:8px 0">本航班無已知宵禁限制機場</div>`;
+  }
+
+  // 搜尋其他機場
+  html += `<div style="margin-top:${unique.length>0?'12px':'0'}">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">🔍 查詢其他機場</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="curfew-search" class="search-input" style="flex:1;height:36px;font-size:13px;text-transform:uppercase" placeholder="IATA 或 ICAO（如 NRT、RJAA）" autocapitalize="characters" oninput="searchCurfew(this.value)">
+    </div>
+    <div id="curfew-search-result" style="margin-top:8px"></div>
+  </div>`;
+
+  el.innerHTML = html;
+}
+
+function searchCurfew(q) {
+  const el = document.getElementById('curfew-search-result');
+  if (!el) return;
+  const code = q.trim().toUpperCase();
+  if (code.length < 3) { el.innerHTML = ''; return; }
+
+  let icao = null;
+  if (CURFEW_DB[code])           icao = code;
+  else if (CURFEW_IATA_MAP[code]) icao = CURFEW_IATA_MAP[code];
+
+  if (icao) {
+    el.innerHTML = curfewCardHTML(CURFEW_DB[icao], icao);
+  } else {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:6px 0">查無「${code}」的宵禁資料</div>`;
+  }
+}
+
+let _curfewTimer = null;
+function startCurfewUpdates() {
+  renderCurfews();
+  if (_curfewTimer) clearInterval(_curfewTimer);
+  _curfewTimer = setInterval(renderCurfews, 30000);
+}
+startCurfewUpdates();
 
 // ── Restore last briefing data on home ──────────────────
 (function loadHomeData() {
