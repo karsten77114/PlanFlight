@@ -7,6 +7,133 @@
 <meta name="theme-color" content="#0f1824">
 <title>PlanFlight — 飛機</title>
 <link rel="stylesheet" href="style.css">
+<style>
+.elb-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.elb-status-bar.disconnected { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.3); }
+.elb-status-bar.connecting   { background: rgba(245,158,11,.15); color: var(--accent); border: 1px solid rgba(245,158,11,.3); }
+.elb-status-bar.connected    { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+
+.mel-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.mel-ok   { background: rgba(34,197,94,.2);  color: var(--green); }
+.mel-warn { background: rgba(245,158,11,.2); color: var(--accent); }
+.mel-err  { background: rgba(239,68,68,.2);  color: var(--red); }
+
+.mel-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mel-item:last-child { border-bottom: none; }
+.mel-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mel-cat {
+  display: inline-block;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 22px;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.cat-A { background: rgba(239,68,68,.3); color: var(--red); }
+.cat-B { background: rgba(245,158,11,.3); color: var(--accent); }
+.cat-C { background: rgba(250,204,21,.3); color: #fbbf24; }
+.cat-D { background: rgba(148,163,184,.2); color: var(--text2); }
+.mel-desc { font-size: 13px; color: var(--text); flex: 1; }
+.mel-ata  { font-size: 11px; color: var(--text3); }
+.mel-expire { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+.flight-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.flight-row:last-child { border-bottom: none; }
+.flight-num { font-size: 13px; font-weight: 700; color: var(--accent); width: 60px; }
+.flight-route { font-size: 14px; color: var(--text); flex: 1; }
+.flight-time  { font-size: 11px; color: var(--text2); }
+.flight-block { font-size: 11px; color: var(--text3); }
+.autoland-badge {
+  font-size: 10px; padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(96,165,250,.2); color: var(--blue);
+}
+.flight-defects { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.defect-tag {
+  font-size: 11px; color: var(--text2);
+  background: rgba(255,255,255,.05);
+  padding: 5px 8px; border-radius: 0 4px 4px 0;
+}
+.defect-tag.defect-fl-type { border-left: 2px solid rgba(251,191,36,.6); }
+.defect-tag.defect-cl-type { border-left: 2px solid rgba(96,165,250,.6); }
+.defect-title { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.defect-fl   { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.defect-cl   { color: #60a5fa;       font-weight: 700; flex-shrink: 0; }
+.defect-desc { color: var(--text); font-weight: 600; }
+.defect-status {
+  font-size: 10px; padding: 1px 5px; border-radius: 3px;
+  flex-shrink: 0; margin-left: auto;
+}
+.defect-status.closed { background: rgba(34,197,94,.15); color: #22c55e; }
+.defect-status.open   { background: rgba(239,68,68,.15);  color: #ef4444; }
+.defect-crew   { margin-top: 3px; color: var(--text2); font-style: italic; line-height: 1.4; }
+.defect-action { margin-top: 3px; color: var(--text3); font-size: 10.5px; line-height: 1.4; }
+
+.ntc-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ntc-item:last-child { border-bottom: none; }
+.ntc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.ntc-name { font-size: 13px; font-weight: 700; color: var(--accent); }
+.ntc-expire { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.ntc-expire.urgent { background: rgba(239,68,68,.2); color: var(--red); }
+.ntc-expire.warn   { background: rgba(245,158,11,.2); color: var(--accent); }
+.ntc-expire.ok     { background: rgba(148,163,184,.15); color: var(--text2); }
+.ntc-body { font-size: 12px; color: var(--text2); white-space: pre-wrap; line-height: 1.5; }
+.mel-expire-days { font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; }
+.mel-expire-days.urgent { background: rgba(239,68,68,.2); color: var(--red); }
+.mel-expire-days.warn   { background: rgba(245,158,11,.2); color: var(--accent); }
+.mel-expire-days.ok     { background: rgba(148,163,184,.15); color: var(--text2); }
+.mel-cat-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px; margin-left: 4px; }
+.cat-A { background: rgba(239,68,68,.3); color: var(--red); }
+.cat-B { background: rgba(245,158,11,.3); color: var(--accent); }
+.cat-C { background: rgba(250,204,21,.3); color: #fbbf24; }
+.cat-D { background: rgba(148,163,184,.2); color: var(--text2); }
+
+.ac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ac-reg-big  { font-size: 22px; font-weight: 800; color: var(--blue); }
+.ac-type-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+.inflight-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(34,197,94,.2);
+  color: var(--green);
+  font-weight: 700;
+}
+</style>
 </head>
 <body>
 
@@ -20,54 +147,94 @@
 <div class="main">
 <div class="page-content">
 
-  <div class="auth-banner">
-    <span style="font-size:18px">🔐</span>
-    <div class="auth-banner-text">
-      <strong>需要 ELB 帳號</strong>（與 LIDO 帳號<span style="color:var(--red)">不同</span>）：此頁為規劃中功能，待 ELB API 整合後啟用。
-    </div>
-    <button class="btn btn-ghost btn-sm" onclick="alert('ELB 整合開發中…')">⚙️</button>
+  <!-- ELB 連線狀態列 -->
+  <div class="elb-status-bar disconnected" id="elbStatusBar">
+    <span id="elbStatusDot">⚫</span>
+    <span id="elbStatusText">ELB 未連線 — 請先在瀏覽器登入 ELB</span>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openELBLogin()">登入 ELB</button>
+    <button class="btn btn-ghost btn-sm" onclick="connectWS()" id="btnReconnect" style="display:none">重連</button>
   </div>
 
+  <!-- 搜尋列 -->
   <div class="search-bar">
     <div class="search-row">
-      <input class="search-input" id="inputReg" placeholder="機尾號（如 B-58212）" style="text-transform:uppercase" maxlength="8">
-      <button class="btn btn-primary" onclick="queryAC()">查詢</button>
+      <input class="search-input" id="inputReg" placeholder="機尾號（如 B-58212）"
+             style="text-transform:uppercase" maxlength="8"
+             onkeydown="if(event.key==='Enter') queryAC()">
+      <button class="btn btn-primary" onclick="queryAC()" id="btnQuery">查詢</button>
     </div>
   </div>
 
-  <!-- States -->
+  <!-- 歡迎畫面 -->
   <div class="state-screen" id="stateWelcome">
     <div class="state-icon">✈️</div>
     <div class="state-title">ELB 飛機狀態</div>
-    <div class="state-sub">輸入機尾號查詢 MEL 暫緩故障與最近飛行記錄。<br><br>ELB API 整合開發中，敬請期待。</div>
+    <div class="state-sub">
+      輸入機尾號查詢 MEL 暫緩故障與最近飛行記錄。<br><br>
+      首次使用請點上方「登入 ELB」，在瀏覽器完成 ELB 登入後回到此頁查詢。
+    </div>
   </div>
 
-  <div class="state-screen hidden" id="stateResult">
+  <!-- 載入中 -->
+  <div class="state-screen hidden" id="stateLoading">
+    <div class="state-icon">⏳</div>
+    <div class="state-title">查詢中</div>
+    <div class="state-sub" id="loadingMsg">正在連線到 ELB…</div>
+  </div>
+
+  <!-- 錯誤 -->
+  <div class="state-screen hidden" id="stateError">
+    <div class="state-icon">⚠️</div>
+    <div class="state-title">查詢失敗</div>
+    <div class="state-sub" id="errorMsg">請確認已登入 ELB 並重試。</div>
+    <button class="btn btn-primary" style="margin-top:16px" onclick="queryAC()">重試</button>
+  </div>
+
+  <!-- 結果卡 -->
+  <div class="hidden" id="stateResult">
+
+    <!-- 飛機資訊卡 -->
     <div class="card" style="width:100%;text-align:left">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="ac-header">
         <div>
-          <div style="font-size:20px;font-weight:800;color:var(--blue)" id="ac-reg">B-—</div>
-          <div style="font-size:12px;color:var(--text2)" id="ac-type">A321-252NX · STARLUX</div>
+          <div class="ac-reg-big" id="ac-reg">—</div>
+          <div class="ac-type-sub" id="ac-type">—</div>
         </div>
-        <div class="mel-badge" id="mel-badge">查詢中</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div class="mel-badge" id="mel-badge">—</div>
+          <div class="inflight-tag hidden" id="inFlightTag">✈ 飛行中</div>
+        </div>
       </div>
+
+      <!-- MEL 清單 -->
+      <div class="section-label" style="margin-top:4px">MEL 暫緩故障</div>
       <div id="mel-list">
-        <div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">ELB 整合開發中</div>
+        <div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">載入中…</div>
       </div>
     </div>
 
+    <!-- Notices to Crew 卡 -->
+    <div class="card" style="width:100%;text-align:left;margin-top:0" id="ntc-card">
+      <div class="section-label" style="margin-top:0">Notices to Crew</div>
+      <div id="ntc-list">
+        <div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">載入中…</div>
+      </div>
+    </div>
+
+    <!-- 最近飛行記錄卡 -->
     <div class="card" style="width:100%;text-align:left;margin-top:0">
       <div class="card-title">最近飛行記錄</div>
       <div id="ac-history">
-        <div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">ELB 整合開發中</div>
+        <div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">載入中…</div>
       </div>
     </div>
+
   </div>
 
-  <!-- Quick links -->
+  <!-- 快速入口 -->
   <div class="section-label">快速入口</div>
   <div class="links-grid">
-    <a class="link-card" href="https://sjxelb.starlux-airlines.com" target="_blank">
+    <a class="link-card" href="https://elb.starlux-airlines.com/elb/" target="_blank">
       <div class="link-icon">🛩</div>
       <div class="link-name">SJX ELB Fleet</div>
       <div class="link-desc">直接開啟 ELB 網站</div>
@@ -92,32 +259,473 @@
 </nav>
 
 <script>
+// ─── UTC Clock ──────────────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
-  const pad = n => String(n).padStart(2,'0');
+  const p = n => String(n).padStart(2, '0');
   document.getElementById('utc-clock').textContent =
-    `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())} UTC`;
+    `${p(now.getUTCHours())}:${p(now.getUTCMinutes())}:${p(now.getUTCSeconds())} UTC`;
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-function queryAC() {
-  const reg = document.getElementById('inputReg').value.trim().toUpperCase();
-  if (!reg) return;
-  document.getElementById('stateWelcome').classList.add('hidden');
-  document.getElementById('stateResult').classList.remove('hidden');
-  document.getElementById('ac-reg').textContent = reg;
-  document.getElementById('mel-badge').className = 'mel-badge mel-warn';
-  document.getElementById('mel-badge').textContent = 'ELB 整合開發中';
+// ─── ELB WebSocket ──────────────────────────────────────────────────────────
+const ELB_WS_URL = 'wss://elb.starlux-airlines.com/logbook-api/session';
+
+let ws = null;
+let wsReady = false;
+let msgIdCounter = 0;
+const pending = {};       // id → { resolve, reject }
+let reconnectTimer = null;
+
+function nextId() { return ++msgIdCounter; }
+
+function setStatus(state, text) {
+  const bar = document.getElementById('elbStatusBar');
+  const dot = document.getElementById('elbStatusDot');
+  const txt = document.getElementById('elbStatusText');
+  const btn = document.getElementById('btnReconnect');
+  bar.className = 'elb-status-bar ' + state;
+  txt.textContent = text;
+  if (state === 'connected') {
+    dot.textContent = '🟢';
+    btn.style.display = 'none';
+  } else if (state === 'connecting') {
+    dot.textContent = '🟡';
+    btn.style.display = 'none';
+  } else {
+    dot.textContent = '🔴';
+    btn.style.display = '';
+  }
 }
 
+function connectWS() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  clearTimeout(reconnectTimer);
+  setStatus('connecting', 'ELB 連線中…');
+
+  ws = new WebSocket(ELB_WS_URL);
+
+  ws.onopen = () => {
+    // 等待 localApplicationConfiguration 再標記 connected
+  };
+
+  ws.onmessage = (evt) => {
+    let json;
+    try { json = JSON.parse(evt.data); } catch { return; }
+
+    console.log('[ELB WS]', JSON.stringify(json).slice(0, 300));
+
+    const id   = json.id;
+    const type = json.type;
+    const fn   = json.func;
+    // content 可能在 "content" 或直接是整個物件（不同 ELB 版本結構不同）
+    const content = json.content !== undefined ? json.content : json;
+
+    if (type === 'not' && fn === 'localApplicationConfiguration') {
+      wsReady = true;
+      setStatus('connected', 'ELB 已連線 ✓');
+    }
+
+    if (type === 'res' && id != null && pending[id]) {
+      pending[id].resolve(content);
+      delete pending[id];
+    }
+
+    if (type === 'fail' && id != null && pending[id]) {
+      const msg = (typeof content === 'object' && content?.message) || '伺服器錯誤';
+      pending[id].reject(new Error(msg));
+      delete pending[id];
+    }
+  };
+
+  ws.onerror = () => {
+    wsReady = false;
+    setStatus('disconnected', 'ELB 連線失敗 — 請確認已登入 ELB 網站');
+  };
+
+  ws.onclose = () => {
+    wsReady = false;
+    setStatus('disconnected', 'ELB 連線中斷 — 點「重連」再試');
+    Object.values(pending).forEach(p => p.reject(new Error('連線中斷')));
+    for (const k in pending) delete pending[k];
+    reconnectTimer = setTimeout(connectWS, 8000);
+  };
+}
+
+function wsSend(funcName, content) {
+  return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return reject(new Error('WebSocket 未連線'));
+    }
+    const id = nextId();
+    pending[id] = { resolve, reject };
+    const msg = JSON.stringify({ id, type: 'req', func: funcName, content });
+    ws.send(msg);
+    setTimeout(() => {
+      if (pending[id]) {
+        delete pending[id];
+        reject(new Error('請求逾時'));
+      }
+    }, 15000);
+  });
+}
+
+// ─── ELB API ────────────────────────────────────────────────────────────────
+
+async function getAircraftState(reg) {
+  return wsSend('getAircraftState', { id: reg });
+}
+
+async function getMaintLog(id) {
+  return wsSend('getMaintLog', { id });
+}
+
+async function getFlightLog(id) {
+  return wsSend('getFlightLog', { id });
+}
+
+// 查詢飛行記錄的 maintLogIds，同時取得 autoland 狀態與機組回報的故障清單
+const _SKIP_DESC = new Set([
+  'NIL TECHNICAL DEFECT',
+  'AUTOLAND SATISFACTORY',
+  'AUTOLAND NOT PERFORMED',
+  'AUTOLAND NOT ATTEMPTED',
+  'APU IN-FLIGHT START NOT PERFORMED',
+  'APU IN-FLIGHT START PERFORMED',
+]);
+async function getFlightDetails(flight) {
+  const ids = flight.maintLogIds || [];
+  if (!ids.length) return { autoland: false, defects: [] };
+  const logs = await Promise.all(ids.map(id => wsSend('getMaintLog', { id }).catch(() => null)));
+  const autoland = logs.some(ml => ml?.faultDescription === 'AUTOLAND SATISFACTORY');
+  const defectLogs = logs.filter(ml =>
+    ml &&
+    ml.faultDescription &&
+    !_SKIP_DESC.has(ml.faultDescription) &&
+    (ml.recordName?.startsWith('FL') || ml.recordName?.startsWith('CL'))
+  );
+  // 補查每筆故障的最新 MaintAction，取得處置描述
+  const defects = await Promise.all(defectLogs.map(async ml => {
+    const maId = ml.latestMaintActionId;
+    if (maId) {
+      const ma = await wsSend('getMaintAction', { id: maId }).catch(() => null);
+      if (ma) ml._actionDesc = ma.maintActionDescription?.trim() || '';
+    }
+    return ml;
+  }));
+  return { autoland, defects };
+}
+
+// MEL 含 deferral 詳情（Category + Expire days）
+async function getMELFull(id) {
+  const ml = await getMaintLog(id).catch(() => null);
+  if (!ml) return null;
+  const maId = ml.latestDeferringMaintActionId;
+  if (maId) {
+    const ma = await wsSend('getMaintAction', { id: maId }).catch(() => null);
+    const d = ma?.maintActionDeferral;
+    if (d) {
+      ml._category = d.deferralCategoryOther || d.deferralCategory || '?';
+      ml._expireDays = calcExpireDays(ml.originDateTime, d.expiration);
+    }
+    // MEL code: 在 actionAuthorityRef 裡找 typeOfReference === 'MEL' 的 documentNumber
+    const refs = ma?.actionAuthorityRef || [];
+    const melRef = refs.find(r => r.typeOfReference === 'MEL')?.documentNumber
+                || refs.find(r => r.typeOfDocumentOther === 'MEL')?.documentNumber;
+    if (melRef) ml._melCode = melRef;
+  }
+  return ml;
+}
+
+// NTC 含內文與到期
+async function getNTCFull(id) {
+  const ntc = await wsSend('getNoteToCrew', { id }).catch(() => null);
+  if (!ntc) return null;
+  const act = ntc.ntcActions?.[0];
+  ntc._title = ntc.recordName || id;
+  ntc._text  = act?.comments?.trim() || '';
+  const expDate = act?.expiration?.[0]?.date;
+  if (expDate) ntc._expireDays = Math.round((new Date(expDate) - new Date()) / 86400000);
+  return ntc;
+}
+
+function calcExpireDays(baseIso, expArr) {
+  const days = expArr?.[0]?.relativeTime?.days;
+  if (!days || !baseIso) return null;
+  const expire = new Date(new Date(baseIso).getTime() + days * 86400000);
+  return Math.round((expire - new Date()) / 86400000);
+}
+
+// ─── UI Helpers ─────────────────────────────────────────────────────────────
+
+function showState(name) {
+  ['Welcome','Loading','Error','Result'].forEach(s => {
+    const el = document.getElementById('state' + s);
+    if (el) el.classList.add('hidden');
+  });
+  const target = document.getElementById('state' + name);
+  if (target) target.classList.remove('hidden');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getUTCMonth()+1)}/${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}Z`;
+}
+
+function catClass(cat) {
+  const map = { A: 'cat-A', B: 'cat-B', C: 'cat-C', D: 'cat-D' };
+  return map[cat] || 'cat-D';
+}
+
+function renderMEL(logs) {
+  const el = document.getElementById('mel-list');
+  const badge = document.getElementById('mel-badge');
+
+  if (!logs || logs.length === 0) {
+    el.innerHTML = '<div style="color:var(--green);font-size:13px;padding:12px 0;text-align:center">✓ 無暫緩故障</div>';
+    badge.className = 'mel-badge mel-ok';
+    badge.textContent = '0 MEL';
+    return;
+  }
+
+  badge.className = 'mel-badge mel-warn';
+  badge.textContent = `${logs.length} MEL`;
+
+  const sorted = [...logs].sort((a, b) => {
+    const da = a._expireDays ?? Infinity;
+    const db = b._expireDays ?? Infinity;
+    return da - db;
+  });
+
+  el.innerHTML = sorted.map(m => {
+    const desc    = m.faultDescription || m.defectDescription || '（無描述）';
+    const melCode = m._melCode || '';
+    const ref     = m.deferralRefNum || '';
+    const cat     = m._category || '';
+    const days    = m._expireDays;
+
+    const expireCls = days != null ? (days <= 7 ? 'urgent' : days <= 30 ? 'warn' : 'ok') : '';
+    const expireHtml = days != null
+      ? `<span class="mel-expire-days ${expireCls}">到期 ${days} 天</span>` : '';
+    const catHtml = cat
+      ? `<span class="mel-cat-badge cat-${cat}">Cat ${cat}</span>` : '';
+
+    return `
+      <div class="mel-item">
+        <div class="mel-item-header" style="align-items:flex-start;gap:6px">
+          <div style="flex:1">
+            ${melCode ? `<div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:3px">MEL ${melCode}</div>` : ''}
+            <span class="mel-desc">${desc}</span>
+          </div>
+        </div>
+        <div class="mel-ata" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-top:4px">
+          ${ref ? `<span>REF ${ref}</span>` : ''}
+          ${catHtml}${expireHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderNTC(ntcs) {
+  const el = document.getElementById('ntc-list');
+  if (!ntcs || ntcs.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">無 Notices to Crew</div>';
+    return;
+  }
+  el.innerHTML = ntcs.map(n => {
+    let expireHtml = '';
+    if (n._expireDays != null) {
+      const cls = n._expireDays <= 3 ? 'urgent' : n._expireDays <= 14 ? 'warn' : 'ok';
+      expireHtml = `<span class="ntc-expire ${cls}">到期 ${n._expireDays} 天</span>`;
+    }
+    return `
+      <div class="ntc-item">
+        <div class="ntc-header">
+          <span class="ntc-name">${n._title}</span>
+          ${expireHtml}
+        </div>
+        <div class="ntc-body">${n._text}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderFlights(flights) {
+  const el = document.getElementById('ac-history');
+  if (!flights || flights.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">無飛行記錄</div>';
+    return;
+  }
+  el.innerHTML = flights.map(f => {
+    const fnum = f.flightNum || '—';
+    const route = `${f.originStationCode || '???'} → ${f.destinationStationCode || '???'}`;
+    const depTime = f.oooiOff?.actual || f.oooiOut?.actual || f.actualDepartureTime;
+    const dep = fmtDate(depTime);
+    const autoland = f._autoland ? '<span class="autoland-badge">AUTOLAND</span>' : '';
+    const defectHtml = (f._defects && f._defects.length > 0)
+      ? `<div class="flight-defects">${f._defects.map(d => {
+          const closed = d.maintLogState === 'CLOSED';
+          const crew   = d.comments?.trim() || '';
+          const action = d._actionDesc || '';
+          const isCL = d.recordName?.startsWith('CL');
+          return `<div class="defect-tag ${isCL ? 'defect-cl-type' : 'defect-fl-type'}">
+            <div class="defect-title">
+              ${d.recordName ? `<span class="${isCL ? 'defect-cl' : 'defect-fl'}">${d.recordName}</span> ` : ''}<span class="defect-desc">${d.faultDescription}</span>
+              <span class="defect-status ${closed ? 'closed' : 'open'}">${closed ? '已關閉' : '未結案'}</span>
+            </div>
+            ${crew   ? `<div class="defect-crew">${crew}</div>` : ''}
+            ${action ? `<div class="defect-action">▶ ${action}</div>` : ''}
+          </div>`;
+        }).join('')}</div>`
+      : '';
+    return `
+      <div class="flight-row">
+        <div class="flight-num">${fnum}</div>
+        <div style="flex:1">
+          <div class="flight-route">${route} ${autoland}</div>
+          <div class="flight-time">${dep}</div>
+          ${defectHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── Main Query ─────────────────────────────────────────────────────────────
+
+function normalizeReg(raw) {
+  // B58507 → B-58507，B-58507 保持不變
+  return raw.replace(/^(B)([0-9]{5})$/, '$1-$2');
+}
+
+async function queryAC() {
+  const reg = normalizeReg(document.getElementById('inputReg').value.trim().toUpperCase());
+  if (!reg) return;
+  document.getElementById('inputReg').value = reg; // 顯示正規化後的格式
+
+  // 確保 WS 連線
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    connectWS();
+    showState('Loading');
+    document.getElementById('loadingMsg').textContent = 'ELB 連線中，請稍候…';
+    // 等待最多 8 秒
+    let waited = 0;
+    await new Promise(res => {
+      const check = setInterval(() => {
+        waited += 500;
+        if (wsReady || waited >= 8000) { clearInterval(check); res(); }
+      }, 500);
+    });
+    if (!wsReady) {
+      showState('Error');
+      document.getElementById('errorMsg').textContent =
+        '無法連線到 ELB。\n請先點「登入 ELB」在瀏覽器完成登入，再回到此頁查詢。';
+      return;
+    }
+  }
+
+  showState('Loading');
+  document.getElementById('loadingMsg').textContent = `查詢 ${reg} 中…`;
+
+  // 顯示結果區，先清空
+  document.getElementById('ac-reg').textContent = reg;
+  document.getElementById('ac-type').textContent = '查詢中…';
+  document.getElementById('mel-badge').className = 'mel-badge mel-warn';
+  document.getElementById('mel-badge').textContent = '載入中';
+  document.getElementById('mel-list').innerHTML =
+    '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">載入中…</div>';
+  document.getElementById('ac-history').innerHTML =
+    '<div style="color:var(--text3);font-size:13px;padding:8px 0;text-align:center">載入中…</div>';
+  document.getElementById('inFlightTag').classList.add('hidden');
+
+  try {
+    // 1. 取得飛機狀態
+    const raw = await getAircraftState(reg);
+    console.log('[ELB getAircraftState raw]', JSON.stringify(raw));
+
+    // ELB 可能把資料包在子層，嘗試多種路徑
+    const state = (raw && typeof raw === 'object')
+      ? (raw.aircraftIdentifier ? raw           // 直接在頂層
+        : raw.data ?? raw.aircraft ?? raw)       // 或包在 data / aircraft 子層
+      : null;
+
+    if (!state || typeof state !== 'object' || !state.aircraftIdentifier) {
+      throw new Error(`找不到飛機「${reg}」，請確認機尾號格式（如 B-58507）並確認已登入 ELB。`);
+    }
+
+    showState('Result');
+
+    // 機型（從 facets 陣列找非 ALL_CAPS_UNDERSCORE 的項目，如 "A350"）
+    const fleetType = (Array.isArray(state.facets) && state.facets.find(f => !/[_]/.test(f))) || 'STARLUX';
+    document.getElementById('ac-type').textContent = `${fleetType} · STARLUX`;
+
+    // 飛行中標籤
+    const inFlight = Array.isArray(state.activeFlights) && state.activeFlights.length > 0;
+    if (inFlight) document.getElementById('inFlightTag').classList.remove('hidden');
+
+    // 2. MEL、NTC、飛行記錄 — 平行抓取
+    const maintIds  = Array.isArray(state.deferredDefects) ? state.deferredDefects : [];
+    const ntcIds    = Array.isArray(state.notesToCrew)    ? state.notesToCrew    : [];
+    const flightIds = (Array.isArray(state.closedFlights)  ? state.closedFlights  : []).slice(0, 8);
+
+    const [melResults, ntcResults, flightResults] = await Promise.all([
+      Promise.all(maintIds.map(id => getMELFull(id).catch(() => null))),
+      Promise.all(ntcIds.map(id => getNTCFull(id).catch(() => null))),
+      Promise.all(flightIds.map(id => getFlightLog(id).catch(() => null)))
+    ]);
+
+    renderMEL(melResults.filter(Boolean));
+    renderNTC(ntcResults.filter(Boolean));
+
+    const sorted = flightResults.filter(Boolean).sort((a, b) => {
+      const ta = a.oooiOff?.actual || a.oooiOut?.actual || '';
+      const tb = b.oooiOff?.actual || b.oooiOut?.actual || '';
+      return tb > ta ? 1 : -1;
+    });
+
+    // 直接查每班的 maintLogIds，取得 autoland 狀態與故障清單
+    const details = await Promise.all(sorted.map(f => getFlightDetails(f)));
+    sorted.forEach((f, i) => {
+      f._autoland = details[i].autoland;
+      f._defects  = details[i].defects;
+    });
+
+    renderFlights(sorted);
+
+    // 儲存到 localStorage 供其他頁面使用
+    localStorage.setItem('pf_last_ac', JSON.stringify({ reg, state, ts: Date.now() }));
+
+  } catch (err) {
+    console.error(err);
+    showState('Error');
+    document.getElementById('errorMsg').textContent = `查詢失敗：${err.message}`;
+  }
+}
+
+// ─── ELB Login Helper ───────────────────────────────────────────────────────
+
+function openELBLogin() {
+  window.open('https://elb.starlux-airlines.com/elb/', '_blank');
+  setTimeout(() => {
+    setStatus('connecting', '請在新分頁完成 ELB 登入後，點「重連」');
+    document.getElementById('btnReconnect').style.display = '';
+  }, 500);
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
+
 // Auto-fill from last OFP
-(function() {
+(function () {
   const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
   if (d && d.ofp && d.ofp.reg) {
     document.getElementById('inputReg').value = d.ofp.reg;
   }
 })();
+
+// 頁面載入時嘗試連線（若使用者已登入 ELB，Cookie 會自動帶上）
+connectWS();
 </script>
 </body>
 </html>
