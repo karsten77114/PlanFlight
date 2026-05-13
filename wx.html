@@ -76,6 +76,41 @@
 }
 .aw-taf { font-size: 11px; color: var(--text2); }
 
+/* ── D-ATIS cards ────────────────────────────────── */
+.datis-apt-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+}
+.datis-apt-btn {
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; transition: all .15s;
+  font-family: 'SF Mono', ui-monospace, monospace; letter-spacing: .5px;
+}
+.datis-apt-btn.active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+.datis-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+}
+.datis-card-title {
+  font-size: 11px; font-weight: 700; color: var(--gold);
+  letter-spacing: .4px; margin-bottom: 6px; display: flex;
+  align-items: center; gap: 6px;
+}
+.datis-card-time {
+  font-size: 10px; color: var(--text3); font-weight: 400; margin-left: auto;
+}
+.datis-card pre {
+  margin: 0; white-space: pre-wrap; word-break: break-word;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 12px; line-height: 1.6; color: var(--text);
+}
+.datis-na {
+  color: var(--text3); font-size: 12px; padding: 12px 0;
+  text-align: center;
+}
+
 /* ── NATO MIL colour codes ───────────────────────── */
 /* Applied ONLY to visibility (meters) and SCT|BKN|OVC ceiling */
 .nato-blu { color: #60a5fa; }          /* BLU ≥8000m / ≥2500ft */
@@ -125,24 +160,25 @@
   </div>
   <div id="extra-section"></div>
 
-  <!-- ══ D-ATIS（手動查詢）══ -->
+  <!-- ══ D-ATIS ══ -->
   <div class="section-label" style="margin-top:20px">
     D-ATIS
     <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:8px">數位自動終端資訊</span>
   </div>
-  <div class="cred-info">
-    <span class="tag">API</span>FAA 機場（ICAO 開頭 K）支援線上 D-ATIS。台灣 / 日本 / 東南亞機場請使用 ACARS 或無線電。
-  </div>
-  <div class="search-bar">
+
+  <!-- OFP 快速機場按鈕（自動填入） -->
+  <div id="datis-apt-row" class="datis-apt-row"></div>
+
+  <div class="search-bar" style="margin-bottom:0">
     <div class="search-row" style="gap:8px;align-items:center;flex-wrap:wrap">
       <input class="search-input" id="datis-input"
         style="width:84px;text-align:center;text-transform:uppercase;font-weight:700;letter-spacing:1px"
-        placeholder="ICAO/IATA" maxlength="4"
+        placeholder="ICAO" maxlength="4"
         onkeydown="if(event.key==='Enter')queryDATIS()">
-      <button class="btn btn-primary" onclick="queryDATIS()">查 D-ATIS</button>
+      <button class="btn btn-primary" onclick="queryDATIS()">查詢</button>
     </div>
   </div>
-  <div id="datis-result"></div>
+  <div id="datis-result" style="margin-top:10px"></div>
 
   <!-- ══ NOTAM ══ -->
   <div class="section-label" style="margin-top:20px">NOTAM 快速跳轉</div>
@@ -303,7 +339,8 @@ function startAutoRefresh(icaos) {
   autoRefreshTimer = setInterval(() => fetchAndRenderOFP(true), 600000);
 }
 
-// ── NOAA AWC（via corsproxy.io CORS proxy）───────────────
+// ── Worker & NOAA ─────────────────────────────────────────
+const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
 const AWC  = 'https://aviationweather.gov/api/data';
 const PRXY = 'https://corsproxy.io/?';
 
@@ -540,6 +577,7 @@ async function fetchAndRenderOFP(silent = false) {
   startAutoRefresh(icaos);
   generateNOTAMLinks('');
   initTurbli();
+  setupAtisButtons(icaos, roleMap);
 }
 
 // ── Extra airport query ───────────────────────────────────
@@ -554,40 +592,72 @@ async function fetchExtraAirport() {
 }
 
 // ── D-ATIS ────────────────────────────────────────────────
-async function queryDATIS() {
-  const raw = document.getElementById('datis-input').value.trim();
+let _datisActiveIcao = '';
+
+function setupAtisButtons(icaos, roleMap) {
+  const row = document.getElementById('datis-apt-row');
+  if (!row) return;
+  if (!icaos.length) { row.innerHTML = ''; return; }
+  row.innerHTML = icaos.map(ic => {
+    const role = roleMap[ic] ? ` <span style="font-size:9px;opacity:.7">${roleMap[ic]}</span>` : '';
+    return `<button class="datis-apt-btn" onclick="queryDATIS('${ic}')">${ic}${role}</button>`;
+  }).join('');
+}
+
+async function queryDATIS(icaoArg) {
+  const raw = icaoArg || document.getElementById('datis-input').value.trim();
   if (!raw) return;
   const ic = toICAO(raw);
+
+  // Update active button state
+  _datisActiveIcao = ic;
+  document.querySelectorAll('.datis-apt-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.startsWith(ic));
+  });
+
   const sec = document.getElementById('datis-result');
-  sec.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto;width:20px;height:20px;border-width:2px"></div></div>`;
+  sec.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto;width:20px;height:20px;border-width:2px"></div><div style="color:var(--text3);font-size:11px;margin-top:8px">載入 ${ic} D-ATIS …</div></div>`;
+
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(`https://datis.clowd.io/api/${ic}`, { signal: ctrl.signal });
-    clearTimeout(t);
+    const r = await fetchT(`${WORKER_URL}/atis?icao=${encodeURIComponent(ic)}`);
     const data = r.ok ? await r.json() : null;
 
-    if (data && Array.isArray(data) && data.length > 0) {
-      sec.innerHTML = data.map(atis => `<div class="metar-box">
-        <div class="metar-header">
-          <div class="metar-icao">${ic} D-ATIS${atis.type ? ' — '+atis.type : ''}</div>
-          <div class="metar-cat" style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3)">LIVE</div>
-        </div>
-        <div class="metar-raw" style="margin-top:8px">${atis.datis}</div>
-      </div>`).join('');
-    } else {
-      sec.innerHTML = `<div class="metar-box" style="padding:12px 14px">
-        <div class="metar-header">
-          <div class="metar-icao">${ic}</div>
-          <div class="metar-cat" style="background:rgba(71,85,105,.3);color:var(--text3)">N/A</div>
-        </div>
-        <div style="color:var(--text3);font-size:12px;padding:4px 0">
-          無線上 D-ATIS（此機場請使用 ACARS 或無線電）
-        </div>
-      </div>`;
+    if (ic !== _datisActiveIcao) return; // stale response
+
+    if (!data || data.error || !data.sections?.length) {
+      sec.innerHTML = `<div class="datis-card"><div class="datis-na">
+        ${ic} 目前無法取得 D-ATIS<br>
+        <span style="font-size:11px">請使用 ACARS 或無線電確認</span>
+      </div></div>`;
+      return;
     }
+
+    const timeStr = data.fetchedAt
+      ? new Date(data.fetchedAt).toISOString().slice(11,16) + 'Z'
+      : '';
+
+    const iconFor = t => {
+      const tl = t.toLowerCase();
+      if (tl.includes('arrival') || tl.includes('arr')) return '🛬';
+      if (tl.includes('departure') || tl.includes('dep')) return '🛫';
+      if (tl.includes('metar')) return '📡';
+      if (tl.includes('taf')) return '🕐';
+      return '📻';
+    };
+
+    sec.innerHTML = data.sections.map(s => `
+      <div class="datis-card">
+        <div class="datis-card-title">
+          ${iconFor(s.title)} ${s.title}
+          <span class="datis-card-time">${timeStr}</span>
+        </div>
+        <pre>${s.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+      </div>`).join('');
+
   } catch(e) {
-    sec.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:12px">查詢失敗：${e.message}</div>`;
+    if (ic === _datisActiveIcao) {
+      sec.innerHTML = `<div class="datis-na">查詢失敗：${e.message}</div>`;
+    }
   }
 }
 

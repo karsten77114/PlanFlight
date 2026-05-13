@@ -1,4 +1,4 @@
-const CACHE = 'planflight-v7';
+const CACHE = 'planflight-v8';
 
 const STATIC = [
   './',
