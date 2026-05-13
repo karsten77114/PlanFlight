@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c1118">
+<title>PlanFlight — 圖表</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Chart page ─────────────────────────────────────── */
+
+/* Sticky within .main scroll container */
+.chart-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.chart-infobar {
+  font-size: 11px; color: var(--text2);
+  padding: 5px 16px 3px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.chart-infobar .tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .5px;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(255,255,255,.1); color: var(--text2);
+}
+
+/* Group tabs */
+.group-tabs {
+  display: flex; overflow-x: auto; gap: 6px;
+  padding: 6px 16px 4px;
+  scrollbar-width: none;
+}
+.group-tabs::-webkit-scrollbar { display: none; }
+.group-tab {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  padding: 5px 12px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; transition: all .15s;
+}
+.group-tab.active {
+  background: var(--accent); border-color: var(--accent);
+  color: #fff;
+}
+
+/* Chart sub-tabs (FL levels etc.) */
+.sub-tabs {
+  display: flex; gap: 6px; padding: 4px 16px 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.sub-tabs::-webkit-scrollbar { display: none; }
+.sub-tab {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 16px;
+  background: rgba(255,255,255,.06); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; transition: all .15s;
+}
+.sub-tab.active {
+  background: rgba(99,102,241,.2);
+  border-color: var(--accent); color: var(--accent);
+}
+
+/* Chart image area */
+.chart-container {
+  padding: 10px 16px 20px;
+}
+.chart-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.chart-placeholder {
+  color: var(--text3); font-size: 13px; padding: 40px;
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200px;
+}
+.chart-loading {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--text2); font-size: 12px; padding: 60px 20px;
+  justify-content: center; min-height: 200px;
+}
+.spinner {
+  width: 28px; height: 28px;
+  border: 3px solid rgba(255,255,255,.1);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scrollable image viewer */
+.zoom-viewer {
+  width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #1a1f2e;
+}
+.zoom-viewer img {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+.zoom-controls {
+  display: flex; justify-content: center; gap: 12px;
+  padding: 8px 0 4px;
+}
+.zoom-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px;
+  padding: 6px 18px; font-size: 18px; cursor: pointer;
+}
+.no-ofp-msg {
+  text-align: center; color: var(--text3); font-size: 13px;
+  padding: 60px 20px;
+}
+.no-ofp-msg a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="topbar-title">PlanFlight <span class="topbar-sub">圖表</span></span>
+  <span id="topbar-time" class="topbar-time"></span>
+</header>
+
+<div class="main">
+  <!-- Sticky header: infobar + group tabs + FL sub-tabs -->
+  <div class="chart-sticky">
+    <div id="chart-infobar" class="chart-infobar"></div>
+    <div id="group-tabs" class="group-tabs"></div>
+    <div id="sub-tabs" class="sub-tabs" style="display:none"></div>
+  </div>
+
+  <!-- Chart viewer -->
+  <div class="chart-container">
+    <div id="chart-wrap" class="chart-wrap">
+      <div class="chart-placeholder">載入中…</div>
+    </div>
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="zoom(-1)">－</button>
+      <button class="zoom-btn" onclick="zoom(0)">⤢</button>
+      <button class="zoom-btn" onclick="zoom(1)">＋</button>
+    </div>
+  </div>
+</div>
+
+<nav class="tabbar">
+  <a class="tab" href="index.html"><div class="tab-icon">🏠</div>首頁</a>
+  <a class="tab" href="brief.html"><div class="tab-icon">📋</div>簡報</a>
+  <a class="tab" href="ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab active" href="charts.html"><div class="tab-icon">🗺</div>圖表</a>
+  <a class="tab" href="wx.html"><div class="tab-icon">🌤</div>天氣</a>
+  <a class="tab" href="tools.html"><div class="tab-icon">🔧</div>工具</a>
+  <a class="tab" href="log.html"><div class="tab-icon">📓</div>記錄</a>
+</nav>
+
+<script>
+const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
+
+// ── State ─────────────────────────────────────────────
+let chartsData  = null;   // { legId, charts: [{group, files:[{cat,fileId,label,index}]}] }
+let activeGroup = 0;
+let activeSub   = 0;
+let zoomLevel   = 1.0;
+
+// ── UTC clock ─────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getUTCHours()).padStart(2,'0');
+  const mm = String(now.getUTCMinutes()).padStart(2,'0');
+  document.getElementById('topbar-time').textContent = `${hh}:${mm} UTC`;
+}
+updateClock(); setInterval(updateClock, 10000);
+
+// ── Load charts metadata ───────────────────────────────
+async function loadCharts() {
+  const sessionToken = localStorage.getItem('jxb_session');
+  const ofpRaw = localStorage.getItem('pf_last_ofp');
+  if (!sessionToken || !ofpRaw) {
+    showNoOFP();
+    return;
+  }
+  const ofp = JSON.parse(ofpRaw);
+  const legId = ofp.legId;
+  if (!legId) { showNoOFP(); return; }
+
+  // Parse flight + date from legId: JX.725.13May2026.TPE.KUL.
+  const m = legId.match(/JX\.(\d+)\.(\d+)([A-Za-z]+)(\d+)\./);
+  let flight = ofp.flightNumber?.replace(/[^0-9]/g,'') || '';
+  let date   = '';
+  if (m) {
+    const monthMap = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+    date = m[4] + (monthMap[m[3].toLowerCase()] || '00') + m[2].padStart(2,'0');
+  }
+
+  document.getElementById('chart-infobar').innerHTML =
+    '<span class="tag">OFP</span> <strong>' + (ofp.flightNumber||'') + '</strong> &nbsp;' +
+    (ofp.dep||'') + ' → ' + (ofp.dest||'') + ' &nbsp;<span style="color:var(--text3)">' + (ofp.date||'') + '</span>';
+
+  const wrap = document.getElementById('chart-wrap');
+  wrap.innerHTML = '<div class="chart-loading"><div class="spinner"></div><span>載入圖表清單…</span></div>';
+
+  try {
+    const resp = await fetch(
+      `${WORKER_URL}/charts?sessionToken=${encodeURIComponent(sessionToken)}&flight=${flight}&date=${date}&legId=${encodeURIComponent(legId)}`
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    chartsData = await resp.json();
+    renderGroupTabs();
+    selectGroup(0);
+  } catch(e) {
+    wrap.innerHTML = `<div class="chart-placeholder">圖表載入失敗：${e.message}</div>`;
+  }
+}
+
+// ── Render group tabs ─────────────────────────────────
+function renderGroupTabs() {
+  const container = document.getElementById('group-tabs');
+  container.innerHTML = '';
+  (chartsData?.charts || []).forEach((g, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'group-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = g.group;
+    btn.onclick = () => selectGroup(i);
+    container.appendChild(btn);
+  });
+}
+
+// ── Select a chart group ──────────────────────────────
+function selectGroup(idx) {
+  activeGroup = idx;
+  activeSub   = 0;
+  zoomLevel   = 1.0;
+
+  // Update group tab styles
+  document.querySelectorAll('.group-tab').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+
+  const group = chartsData?.charts?.[idx];
+  if (!group) return;
+
+  // Render sub-tabs if >1 files
+  const subContainer = document.getElementById('sub-tabs');
+  subContainer.innerHTML = '';
+  if (group.files.length > 1) {
+    subContainer.style.display = 'flex';
+    group.files.forEach((f, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'sub-tab' + (i === 0 ? ' active' : '');
+      btn.textContent = f.label || `图${i+1}`;
+      btn.onclick = () => selectSub(i);
+      subContainer.appendChild(btn);
+    });
+  } else {
+    subContainer.style.display = 'none';
+  }
+
+  renderChart(idx, 0);
+}
+
+// ── Select sub-chart (FL level etc.) ─────────────────
+function selectSub(idx) {
+  activeSub = idx;
+  zoomLevel = 1.0;
+  document.querySelectorAll('.sub-tab').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  renderChart(activeGroup, idx);
+}
+
+// ── Render a single chart image ───────────────────────
+function renderChart(groupIdx, subIdx) {
+  const group = chartsData?.charts?.[groupIdx];
+  const file  = group?.files?.[subIdx];
+  const wrap  = document.getElementById('chart-wrap');
+
+  if (!file) {
+    wrap.innerHTML = '<div class="chart-placeholder">無圖表資料</div>';
+    return;
+  }
+
+  const sessionToken = localStorage.getItem('jxb_session');
+  const legId = chartsData.legId;
+  const src = `${WORKER_URL}/chart?sessionToken=${encodeURIComponent(sessionToken)}&legId=${encodeURIComponent(legId)}&cat=${encodeURIComponent(file.cat)}&fileId=${encodeURIComponent(file.fileId)}`;
+
+  wrap.innerHTML = '<div class="chart-loading"><div class="spinner"></div><span>載入圖表…</span></div>';
+
+  // Use fetch to get image/pdf; handle PDF separately
+  fetch(src)
+    .then(async r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const ct = r.headers.get('content-type') || '';
+      const blob = await r.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      if (ct.includes('pdf')) {
+        // Render PDF inline
+        wrap.innerHTML = `
+          <div class="zoom-viewer" style="height:calc(100vh - 240px)">
+            <object data="${blobUrl}" type="application/pdf" width="100%" height="100%"
+              style="border:none">
+              <div class="chart-placeholder">PDF 無法顯示</div>
+            </object>
+          </div>`;
+      } else {
+        // Image (PNG/JPEG) — full width, tap to zoom
+        wrap.innerHTML = `
+          <div class="zoom-viewer" id="zoom-view">
+            <img id="chart-img" src="${blobUrl}" alt="${file.label}"
+              onclick="zoom(zoomLevel <= 1 ? 1 : 0)"
+              onerror="document.getElementById('chart-wrap').innerHTML='<div class=chart-placeholder>圖片載入失敗</div>'">
+          </div>`;
+      }
+    })
+    .catch(e => {
+      wrap.innerHTML = `<div class="chart-placeholder">載入失敗：${e.message}</div>`;
+    });
+}
+
+// ── Zoom controls ─────────────────────────────────────
+function zoom(dir) {
+  const img = document.getElementById('chart-img');
+  if (!img) return;
+  if (dir === 0) {
+    zoomLevel = 1.0;
+    img.style.width = '100%';
+    img.style.cursor = 'zoom-in';
+  } else {
+    if (dir > 0) { zoomLevel = Math.min(zoomLevel * 1.5, 5); }
+    else         { zoomLevel = Math.max(zoomLevel / 1.5, 0.5); }
+    if (zoomLevel <= 1.0) {
+      zoomLevel = 1.0;
+      img.style.width = '100%';
+      img.style.cursor = 'zoom-in';
+    } else {
+      // Use pixel width so overflow:auto scroll works correctly
+      img.style.width = (img.naturalWidth * zoomLevel) + 'px';
+      img.style.cursor = 'zoom-out';
+    }
+  }
+}
+
+function showNoOFP() {
+  document.getElementById('chart-wrap').innerHTML = `
+    <div class="no-ofp-msg">
+      尚未載入 OFP<br>
+      請先至 <a href="brief.html">簡報頁面</a> 選擇航班
+    </div>`;
+}
+
+// ── Init ──────────────────────────────────────────────
+loadCharts();
+</script>
+</body>
+</html>

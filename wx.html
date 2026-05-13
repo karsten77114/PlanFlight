@@ -2,11 +2,89 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0f1824">
+<meta name="theme-color" content="#0c1118">
 <title>PlanFlight — 天氣</title>
 <link rel="stylesheet" href="style.css">
+<style>
+/* ── AeroWeather-style METAR card ────────────────── */
+.aw-card {
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  overflow: hidden;
+  display: flex;
+}
+.aw-stripe { width: 5px; flex-shrink: 0; }
+.aw-body   { flex: 1; min-width: 0; }
+
+/* Flight category stripe */
+.aw-vfr  .aw-stripe { background: #4ade80; }
+.aw-mvfr .aw-stripe { background: #60a5fa; }
+.aw-ifr  .aw-stripe { background: #f87171; }
+.aw-lifr .aw-stripe { background: #e879f9; }
+.aw-unkn .aw-stripe { background: var(--border); }
+
+/* Header */
+.aw-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 6px; flex-wrap: wrap;
+}
+.aw-icao {
+  font-size: 17px; font-weight: 800;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  letter-spacing: 0.5px; color: var(--text);
+}
+.aw-role {
+  font-size: 10px; font-weight: 700; letter-spacing: .6px;
+  padding: 2px 6px; border-radius: 4px;
+  background: rgba(255,255,255,.08); color: var(--text2);
+}
+.aw-fc-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  padding: 2px 7px; border-radius: 4px; margin-left: auto;
+}
+.aw-vfr  .aw-fc-badge { background:rgba(74,222,128,.18);  color:#4ade80; }
+.aw-mvfr .aw-fc-badge { background:rgba(96,165,250,.18);  color:#60a5fa; }
+.aw-ifr  .aw-fc-badge { background:rgba(248,113,113,.18); color:#f87171; }
+.aw-lifr .aw-fc-badge { background:rgba(232,121,249,.18); color:#e879f9; }
+.aw-unkn .aw-fc-badge { background:rgba(255,255,255,.08); color:var(--text3); }
+
+/* Time row */
+.aw-times {
+  padding: 0 12px 8px; font-size: 11px; color: var(--text3);
+  font-family: 'SF Mono', ui-monospace, monospace;
+}
+.aw-times span { margin-right: 10px; }
+
+/* Section labels (METAR / TAF) */
+.aw-sec {
+  padding: 4px 12px 2px; font-size: 10px; color: var(--text3);
+  letter-spacing: .5px; text-transform: uppercase;
+  border-top: 1px solid var(--border);
+}
+
+/* Raw text (METAR + TAF) */
+.aw-raw {
+  padding: 6px 12px 10px;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 12px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+.aw-taf { font-size: 11px; color: var(--text2); }
+
+/* ── NATO MIL colour codes ───────────────────────── */
+/* Applied ONLY to visibility (meters) and SCT|BKN|OVC ceiling */
+.nato-blu { color: #60a5fa; }          /* BLU ≥8000m / ≥2500ft */
+.nato-wht { color: #e2e8f0; }          /* WHT ≥5000m / ≥1500ft */
+.nato-grn { color: #4ade80; }          /* GRN ≥3700m / ≥700ft  */
+.nato-ylo { color: #fbbf24; }          /* YLO ≥1600m / ≥300ft  */
+.nato-amb { color: #fb923c; }          /* AMB ≥800m  / ≥200ft  */
+.nato-red { color: #f87171; font-weight:600; } /* RED <800m / <200ft */
+</style>
 </head>
 <body>
 
@@ -20,27 +98,85 @@
 <div class="main">
 <div class="page-content">
 
-  <div class="cred-info">
-    <span class="tag">AUTO</span>METAR/TAF 由 AVWX API 自動取得。機場代碼從簡報頁自動帶入。
+  <!-- ══ OFP 天氣（自動載入）══ -->
+  <div id="ofp-info-bar" class="cred-info">
+    <span class="tag">OFP</span>自動載入 OFP 天氣機場中…
   </div>
 
-  <!-- Airport input -->
-  <div class="search-bar">
-    <div class="search-row" style="flex-wrap:wrap;gap:6px">
-      <input class="search-input" id="wx-dep"  style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="DEP" maxlength="4">
-      <input class="search-input" id="wx-dest" style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="DEST" maxlength="4">
-      <input class="search-input" id="wx-altn" style="max-width:72px;text-align:center;text-transform:uppercase;font-weight:700" placeholder="ALTN" maxlength="4">
-      <button class="btn btn-primary" onclick="fetchAllMETAR()">查詢天氣</button>
+  <div id="wx-last-update" style="font-size:11px;color:var(--text3);text-align:right;min-height:16px;margin-bottom:4px"></div>
+
+  <div id="metar-section">
+    <div style="text-align:center;padding:28px">
+      <div class="spinner" style="margin:0 auto"></div>
+      <div style="color:var(--text3);font-size:12px;margin-top:10px">讀取 OFP 資料中…</div>
     </div>
   </div>
 
-  <!-- METAR results -->
-  <div id="metar-section">
-    <div style="color:var(--text3);font-size:12px;text-align:center;padding:16px 0">輸入機場代碼後點「查詢天氣」</div>
+  <!-- ══ 額外機場查詢 ══ -->
+  <div class="section-label" style="margin-top:20px">額外機場查詢</div>
+  <div class="search-bar">
+    <div class="search-row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <input class="search-input" id="wx-extra"
+        style="width:84px;text-align:center;text-transform:uppercase;font-weight:700;letter-spacing:1px"
+        placeholder="ICAO/IATA" maxlength="4"
+        onkeydown="if(event.key==='Enter')fetchExtraAirport()">
+      <button class="btn btn-primary" onclick="fetchExtraAirport()">查詢</button>
+    </div>
+  </div>
+  <div id="extra-section"></div>
+
+  <!-- ══ D-ATIS（手動查詢）══ -->
+  <div class="section-label" style="margin-top:20px">
+    D-ATIS
+    <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:8px">數位自動終端資訊</span>
+  </div>
+  <div class="cred-info">
+    <span class="tag">API</span>FAA 機場（ICAO 開頭 K）支援線上 D-ATIS。台灣 / 日本 / 東南亞機場請使用 ACARS 或無線電。
+  </div>
+  <div class="search-bar">
+    <div class="search-row" style="gap:8px;align-items:center;flex-wrap:wrap">
+      <input class="search-input" id="datis-input"
+        style="width:84px;text-align:center;text-transform:uppercase;font-weight:700;letter-spacing:1px"
+        placeholder="ICAO/IATA" maxlength="4"
+        onkeydown="if(event.key==='Enter')queryDATIS()">
+      <button class="btn btn-primary" onclick="queryDATIS()">查 D-ATIS</button>
+    </div>
+  </div>
+  <div id="datis-result"></div>
+
+  <!-- ══ NOTAM ══ -->
+  <div class="section-label" style="margin-top:20px">NOTAM 快速跳轉</div>
+  <div id="notam-section">
+    <div class="search-bar" style="margin-bottom:10px">
+      <div class="search-row" style="gap:8px;flex-wrap:wrap;align-items:center">
+        <input class="search-input" id="notam-icao"
+          style="width:88px;text-align:center;text-transform:uppercase;font-weight:700;letter-spacing:1px"
+          placeholder="ICAO" maxlength="4"
+          onkeydown="if(event.key==='Enter')generateNOTAMLinks(this.value)">
+        <button class="btn btn-primary" onclick="generateNOTAMLinks(document.getElementById('notam-icao').value)">查詢</button>
+        <button class="btn btn-ghost" onclick="generateNOTAMLinks('')">↺ 重置</button>
+      </div>
+    </div>
+    <div id="notam-links"></div>
   </div>
 
-  <!-- Windy graphic weather -->
-  <div class="section-label">圖形天氣</div>
+  <!-- ══ Turbli ══ -->
+  <div class="section-label" style="margin-top:20px">Turbli 亂流預測</div>
+  <div class="cred-info">
+    <span class="tag">嵌入</span>若 iframe 空白（X-Frame-Options 限制），請點按鈕在新分頁開啟。
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;border-radius:12px">
+    <iframe id="turbli-frame" src="https://turbli.com"
+      style="width:100%;height:400px;border:none;display:block;background:var(--surface)"
+      loading="lazy" title="Turbli 亂流預測"></iframe>
+  </div>
+  <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <a id="turbli-ext-link" class="btn btn-primary" href="https://turbli.com" target="_blank">🌪 開啟 Turbli</a>
+    <button class="btn btn-ghost" id="turbli-route-btn" onclick="openTurbliWithRoute()" style="display:none">✈️ 帶入本次航班</button>
+  </div>
+
+  <!-- ══ Windy 圖形天氣 ══ -->
+  <div class="section-label" style="margin-top:20px">圖形天氣</div>
   <div class="windy-tabs">
     <button class="windy-tab-btn active" onclick="setWindy(this,'radar')">🌧 雷達</button>
     <button class="windy-tab-btn" onclick="setWindy(this,'sat')">🛰 衛星</button>
@@ -53,38 +189,32 @@
     src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=°C&metricWind=kt&zoom=4&overlay=radar&product=ecmwf&level=surface&lat=20&lon=120"
     allowfullscreen loading="lazy"></iframe>
 
-  <!-- Quick tools -->
+  <!-- ══ 天氣工具 ══ -->
   <div class="section-label">天氣工具</div>
   <div class="links-grid">
     <a class="link-card" href="https://www.windy.com" target="_blank">
-      <div class="link-icon">🌐</div>
-      <div class="link-name">Windy 完整版</div>
+      <div class="link-icon">🌐</div><div class="link-name">Windy 完整版</div>
       <div class="link-desc">雷達、風場、亂流</div>
     </a>
-    <a class="link-card" href="https://www.turbli.com" target="_blank">
-      <div class="link-icon">🌪</div>
-      <div class="link-name">Turbli 亂流</div>
-      <div class="link-desc">航班亂流預測</div>
-    </a>
     <a class="link-card" href="https://tono2.com" target="_blank">
-      <div class="link-icon">🇯🇵</div>
-      <div class="link-name">Tono2 天氣</div>
+      <div class="link-icon">🇯🇵</div><div class="link-name">Tono2 天氣</div>
       <div class="link-desc">日本航空氣象</div>
     </a>
     <a class="link-card" href="https://www.jma.go.jp/bosai/map.html" target="_blank">
-      <div class="link-icon">🗾</div>
-      <div class="link-name">JMA SIGWX</div>
+      <div class="link-icon">🗾</div><div class="link-name">JMA SIGWX</div>
       <div class="link-desc">日本顯著天氣圖</div>
     </a>
     <a class="link-card" href="https://www.cwa.gov.tw/V8/C/W/Typhoon/Typhoon_CWB.html" target="_blank">
-      <div class="link-icon">🌀</div>
-      <div class="link-name">颱風路徑</div>
+      <div class="link-icon">🌀</div><div class="link-name">颱風路徑</div>
       <div class="link-desc">中央氣象署</div>
     </a>
     <a class="link-card" href="https://aviationweather.gov/metar" target="_blank">
-      <div class="link-icon">📡</div>
-      <div class="link-name">NOAA METAR</div>
-      <div class="link-desc">NOAA AWC</div>
+      <div class="link-icon">📡</div><div class="link-name">NOAA METAR</div>
+      <div class="link-desc">AWC 網頁版</div>
+    </a>
+    <a class="link-card" href="https://aviationweather.gov/taf" target="_blank">
+      <div class="link-icon">🕐</div><div class="link-name">NOAA TAF</div>
+      <div class="link-desc">24h 預報</div>
     </a>
   </div>
 
@@ -95,12 +225,14 @@
   <a class="tab" href="index.html"><div class="tab-icon">🏠</div>首頁</a>
   <a class="tab" href="brief.html"><div class="tab-icon">📋</div>簡報</a>
   <a class="tab" href="ac.html"><div class="tab-icon">✈️</div>飛機</a>
+  <a class="tab" href="charts.html"><div class="tab-icon">🗺</div>圖表</a>
   <a class="tab active" href="wx.html"><div class="tab-icon">🌤</div>天氣</a>
   <a class="tab" href="tools.html"><div class="tab-icon">🔧</div>工具</a>
   <a class="tab" href="log.html"><div class="tab-icon">📒</div>記錄</a>
 </nav>
 
 <script>
+// ── UTC Clock ─────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
@@ -110,109 +242,419 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Auto-fill from last OFP + restore cached weather
-(function() {
-  // Restore last weather query if < 30 min old
-  const saved = JSON.parse(localStorage.getItem('pf_last_wx') || 'null');
-  if (saved && (Date.now() - saved.ts) < 1800000) {
-    if (saved.dep)  document.getElementById('wx-dep').value  = saved.dep;
-    if (saved.dest) document.getElementById('wx-dest').value = saved.dest;
-    if (saved.altn) document.getElementById('wx-altn').value = saved.altn;
-    const min = Math.round((Date.now() - saved.ts) / 60000);
-    document.getElementById('metar-section').innerHTML = saved.html +
-      `<div style="color:var(--text3);font-size:11px;text-align:right;padding:2px 4px">${min} 分鐘前查詢的快取</div>`;
+// ── IATA → ICAO ───────────────────────────────────────────
+const IATA2ICAO = {
+  TPE:'RCTP', KHH:'RCKH', NRT:'RJAA', HND:'RJTT', KIX:'RJBB',
+  FUK:'RJFF', OKA:'ROAH', CTS:'RJCC', KUL:'WMKK', SGN:'VVTS',
+  BKK:'VTBS', HKG:'VHHH', MNL:'RPLL', SIN:'WSSS', DPS:'WADD',
+  CEB:'RPVM', NGO:'RJGG', RMQ:'RCMQ', TNN:'RCNN', MZG:'RCQC',
+  LAX:'KLAX', ONT:'KONT', HNL:'PHNL', OGG:'PHOG',
+};
+function toICAO(raw) {
+  const u = (raw || '').trim().toUpperCase();
+  return IATA2ICAO[u] || u;
+}
+
+// ── Timezone map (ICAO prefix or full code) ───────────────
+const TZ_MAP = {
+  RCTP:'Asia/Taipei',   RCKH:'Asia/Taipei',  RCMQ:'Asia/Taipei',
+  RCNN:'Asia/Taipei',   RCQC:'Asia/Taipei',
+  RJAA:'Asia/Tokyo',    RJTT:'Asia/Tokyo',   RJBB:'Asia/Tokyo',
+  RJFF:'Asia/Tokyo',    RJCC:'Asia/Tokyo',   RJGG:'Asia/Tokyo',
+  ROAH:'Asia/Tokyo',
+  VHHH:'Asia/Hong_Kong',
+  WSSS:'Asia/Singapore',
+  WMKK:'Asia/Kuala_Lumpur',
+  VTBS:'Asia/Bangkok',  VTBD:'Asia/Bangkok',
+  VVTS:'Asia/Ho_Chi_Minh', VVNB:'Asia/Ho_Chi_Minh',
+  RPLL:'Asia/Manila',   RPVM:'Asia/Manila',
+  WADD:'Asia/Makassar', WIII:'Asia/Jakarta',
+  KLAX:'America/Los_Angeles', KONT:'America/Los_Angeles',
+  KSFO:'America/Los_Angeles', KSEA:'America/Los_Angeles',
+  PHNL:'Pacific/Honolulu', PHOG:'Pacific/Honolulu',
+  PHTO:'Pacific/Honolulu', PHMK:'Pacific/Honolulu',
+  PWAK:'Pacific/Wake',
+};
+function getLocalTimeInfo(icao, utcMs) {
+  const tz = TZ_MAP[icao];
+  if (!tz) return null;
+  const d = new Date(utcMs);
+  const localTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(d);
+  const offsetStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, timeZoneName: 'shortOffset'
+  }).formatToParts(d).find(p => p.type === 'timeZoneName')?.value || '';
+  const utcOffset = offsetStr.replace('GMT', 'UTC');
+  return { localTime, utcOffset };
+}
+
+// ── Fetch with timeout ────────────────────────────────────
+function fetchT(url, ms = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+// ── Auto-refresh (宣告在 IIFE 前避免 TDZ) ────────────────
+let autoRefreshTimer = null;
+function startAutoRefresh(icaos) {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => fetchAndRenderOFP(true), 600000);
+}
+
+// ── NOAA AWC（via corsproxy.io CORS proxy）───────────────
+const AWC  = 'https://aviationweather.gov/api/data';
+const PRXY = 'https://corsproxy.io/?';
+
+async function fetchMETARBatch(icaos) {
+  if (!icaos.length) return {};
+  try {
+    const cb = Date.now();
+    const r = await fetchT(`${PRXY}${AWC}/metar?ids=${icaos.join(',')}&format=json&hours=2&_=${cb}`);
+    if (!r.ok) return {};
+    const arr = await r.json();
+    const map = {};
+    for (const x of (arr || [])) {
+      if (!x.icaoId) continue;
+      const id = x.icaoId.toUpperCase();
+      if (!map[id] || (x.obsTime || 0) > (map[id].obsTime || 0)) map[id] = x;
+    }
+    return map;
+  } catch(e) { return {}; }
+}
+async function fetchTAFBatch(icaos) {
+  if (!icaos.length) return {};
+  try {
+    const cb = Date.now();
+    const r = await fetchT(`${PRXY}${AWC}/taf?ids=${icaos.join(',')}&format=json&_=${cb}`);
+    if (!r.ok) return {};
+    const arr = await r.json();
+    const map = {};
+    for (const x of (arr || [])) if (x.icaoId) map[x.icaoId.toUpperCase()] = x;
+    return map;
+  } catch(e) { return {}; }
+}
+
+// ── NATO MIL colour coding ────────────────────────────────
+// Applied ONLY to: visibility (meters) and SCT|BKN|OVC ceiling height
+function natoVisClass(meters) {
+  if (meters >= 8000) return 'nato-blu';
+  if (meters >= 5000) return 'nato-wht';
+  if (meters >= 3700) return 'nato-grn';
+  if (meters >= 1600) return 'nato-ylo';
+  if (meters >= 800)  return 'nato-amb';
+  return 'nato-red';
+}
+function natoCeilClass(feet) {
+  if (feet >= 2500) return 'nato-blu';
+  if (feet >= 1500) return 'nato-wht';
+  if (feet >= 700)  return 'nato-grn';
+  if (feet >= 300)  return 'nato-ylo';
+  if (feet >= 200)  return 'nato-amb';
+  return 'nato-red';
+}
+function colorizeWX(raw) {
+  if (!raw) return '';
+  let t = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // CAVOK / NSC / SKC / CLR → BLU (best)
+  t = t.replace(/\bCAVOK\b/g, '<span class="nato-blu">CAVOK</span>');
+  t = t.replace(/\b(NSC|NCD|SKC|CLR)\b/g, m => '<span class="nato-blu">'+m+'</span>');
+
+  // SCT | BKN | OVC | VV → colored by ceiling height
+  t = t.replace(/\b(SCT|BKN|OVC|VV)(\d{3})(CB|TCU)?\b/g, (m, cov, hund, type) => {
+    const cls = natoCeilClass(parseInt(hund) * 100);
+    return '<span class="'+cls+'">'+m+'</span>';
+  });
+
+  // Metric visibility (4-digit ≤9999, not part of time groups NNNN/NNNN)
+  t = t.replace(/(?<!\/)(\b\d{4}\b)(?!\/)/g, m => {
+    const v = parseInt(m);
+    if (v > 9999) return m;
+    const cls = natoVisClass(v === 9999 ? 10000 : v);
+    return '<span class="'+cls+'">'+m+'</span>';
+  });
+
+  return t;
+}
+
+// ── TAF line formatting ───────────────────────────────────
+function formatTAF(raw) {
+  if (!raw) return raw;
+  // Insert newline+indent before each change group
+  return raw
+    .replace(/\s+(TEMPO|BECMG|PROB\d{2}\s+TEMPO|PROB\d{2}|INTER|FM\d{6})\b/g, '\n  $1')
+    .trim();
+}
+
+// ── Flight category ───────────────────────────────────────
+function getCeiling(raw) {
+  let ceil = 99999;
+  const re = /(BKN|OVC|VV)(\d{3})/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const ft = parseInt(m[2]) * 100;
+    if (ft < ceil) ceil = ft;
+  }
+  return ceil;
+}
+
+function calcFlightCat(metar) {
+  if (!metar) return null;
+  if (metar.fltcat && metar.fltcat !== 'UNKN') return metar.fltcat.toUpperCase();
+  const raw = metar.rawOb || '';
+  if (/\bCAVOK\b/.test(raw) || /\b(NSC|NCD|SKC|CLR)\b/.test(raw)) return 'VFR';
+  let visSM = 99;
+  const m4 = raw.match(/(?:^|\s)(\d{4})(?:\s|$)/);
+  if (m4) visSM = parseInt(m4[1]) / 1852;
+  // US visibility: handles "10SM", "5SM", "2 1/2SM", "1/4SM", "M1/4SM"
+  const mixedSm = raw.match(/\b(\d+)\s+(\d+)\/(\d+)SM\b/);
+  if (mixedSm) {
+    visSM = parseInt(mixedSm[1]) + parseInt(mixedSm[2]) / parseInt(mixedSm[3]);
+  } else {
+    const sm = raw.match(/\bM?(\d+)(?:\/(\d+))?SM\b/);
+    if (sm) visSM = sm[2] ? parseInt(sm[1]) / parseInt(sm[2]) : parseInt(sm[1]);
+  }
+  const ceil = getCeiling(raw);
+  if (ceil < 500  || visSM < 1)  return 'LIFR';
+  if (ceil < 1000 || visSM < 3)  return 'IFR';
+  if (ceil < 3000 || visSM < 5)  return 'MVFR';
+  return 'VFR';
+}
+
+function catClass(cat) {
+  switch ((cat || '').toUpperCase()) {
+    case 'VFR':  return 'aw-vfr';
+    case 'MVFR': return 'aw-mvfr';
+    case 'IFR':  return 'aw-ifr';
+    case 'LIFR': return 'aw-lifr';
+    default:     return 'aw-unkn';
+  }
+}
+
+// ── Render AeroWeather-style card ─────────────────────────
+function renderWXCard(icao, metar, taf, role) {
+  const raw    = metar?.rawOb || '';
+  const rawTaf = taf?.rawTAF  || '';
+  const cat    = calcFlightCat(metar);
+  const cls    = catClass(cat);
+
+  // Time info
+  let timeHtml = '';
+  if (metar?.obsTime) {
+    const obsMs   = metar.obsTime * 1000;
+    const utcHHMM = new Date(obsMs).toISOString().slice(11, 16) + 'Z';
+    const locInfo = getLocalTimeInfo(icao, obsMs);
+    const minAgo  = Math.round((Date.now() - obsMs) / 60000);
+    const parts   = [
+      locInfo ? locInfo.localTime + 'L (' + locInfo.utcOffset + ')' : null,
+      utcHHMM,
+      minAgo + ' min ago',
+    ].filter(Boolean);
+    timeHtml = '<div class="aw-times">' + parts.map(p => '<span>'+p+'</span>').join('') + '</div>';
+  }
+
+  const roleHtml = role ? '<span class="aw-role">'+role+'</span>' : '';
+  const catBadge = '<span class="aw-fc-badge">'+(cat||'—')+'</span>';
+
+  const metarHtml = raw
+    ? '<div class="aw-sec">METAR</div><div class="aw-raw">'+colorizeWX(raw)+'</div>'
+    : '<div class="aw-raw" style="color:var(--text3)">No METAR available</div>';
+
+  const tafHtml = rawTaf
+    ? '<div class="aw-sec">TAF</div><div class="aw-raw aw-taf">'+colorizeWX(formatTAF(rawTaf))+'</div>'
+    : '';
+
+  return '<div class="aw-card '+cls+'">'
+    + '<div class="aw-stripe"></div>'
+    + '<div class="aw-body">'
+    +   '<div class="aw-header"><span class="aw-icao">'+icao+'</span>'+roleHtml+catBadge+'</div>'
+    +   timeHtml
+    +   metarHtml
+    +   tafHtml
+    + '</div></div>';
+}
+
+// ── Load OFP airports & fetch weather ────────────────────
+let ofpAirports = [];
+
+async function fetchAndRenderOFP(silent = false) {
+  const ofp = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
+  const infoBar = document.getElementById('ofp-info-bar');
+
+  if (!ofp) {
+    infoBar.innerHTML = '<span class="tag">OFP</span>尚未載入 OFP，請先至簡報頁面查詢。';
+    document.getElementById('metar-section').innerHTML =
+      '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">無 OFP 資料<br><a href="brief.html" style="color:var(--gold)">前往簡報頁面載入 OFP →</a></div>';
+    startAutoRefresh([]);
     return;
   }
-  // Otherwise auto-fill from last OFP
-  const d = JSON.parse(localStorage.getItem('pf_last_ofp') || 'null');
-  if (!d) return;
-  const dep = d.dep || d.ofp?.dep;
-  const dest = d.dest || d.ofp?.dest;
-  const altn = d.ofp?.altnApt;
-  if (dep)  document.getElementById('wx-dep').value  = dep;
-  if (dest) document.getElementById('wx-dest').value = dest;
-  if (altn) document.getElementById('wx-altn').value = altn.split('/')[0];
-})();
 
-// ── AVWX API ─────────────────────────────────────────────
-const WORKER_URL = 'https://jx-briefing.karsten77114.workers.dev';
+  const dep  = toICAO(ofp.dep  || ofp.ofp?.dep  || '');
+  const dest = toICAO(ofp.dest || ofp.ofp?.dest || '');
+  const altnRaw = ofp.ofp?.altnApt || '';
+  const altn = altnRaw ? toICAO(altnRaw.split('/')[0]) : '';
 
-async function fetchMETAR(icao) {
-  icao = icao.trim().toUpperCase();
-  if (!icao) return null;
-  // Convert IATA → ICAO for common airports
-  const IATA2ICAO = {
-    TPE:'RCTP', KHH:'RCKH', NRT:'RJAA', HND:'RJTT', KIX:'RJBB',
-    FUK:'RJFF', OKA:'ROAH', CTS:'RJCC', KUL:'WMKK', SGN:'VVTS',
-    BKK:'VTBS', HKG:'VHHH', MNL:'RPLL', SIN:'WSSS', DPS:'WADD',
-    CEB:'RPVM', NGO:'RJGG',
-  };
-  const code = IATA2ICAO[icao] || icao;
+  // Extra airports from LIDO (EDTO/ETP alternates etc.)
+  const extraApts = (ofp.wxAirports || []).map(toICAO).filter(Boolean);
+
+  const icaos = [...new Set([dep, dest, altn, ...extraApts].filter(Boolean))];
+  ofpAirports = icaos;
+
+  if (!icaos.length) {
+    infoBar.innerHTML = '<span class="tag">OFP</span>OFP 中無法解析機場代碼。';
+    return;
+  }
+
+  const roleMap = {};
+  if (dep)  roleMap[dep]  = 'DEP';
+  if (dest) roleMap[dest] = 'DEST';
+  if (altn) roleMap[altn] = 'ALTN';
+  for (const a of extraApts) if (!roleMap[a]) roleMap[a] = 'WX';
+
+  infoBar.innerHTML = '<span class="tag">OFP</span> ' +
+    icaos.map(ic => '<strong>' + ic + '</strong>' +
+      (roleMap[ic] ? ' <span style="font-size:10px;color:var(--text3)">(' + roleMap[ic] + ')</span>' : '')
+    ).join(' · ') +
+    ' <span style="margin-left:8px;color:var(--text3);font-size:11px">每 10 分鐘自動更新</span>';
+
+  if (!silent) {
+    document.getElementById('metar-section').innerHTML = `
+      <div style="text-align:center;padding:24px">
+        <div class="spinner" style="margin:0 auto"></div>
+        <div style="color:var(--text3);font-size:12px;margin-top:10px">連線 NOAA AWC …</div>
+      </div>`;
+  }
+
+  const [mMap, tMap] = await Promise.all([fetchMETARBatch(icaos), fetchTAFBatch(icaos)]);
+
+  document.getElementById('metar-section').innerHTML =
+    icaos.map(ic => renderWXCard(ic, mMap[ic], tMap[ic], roleMap[ic])).join('');
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('wx-last-update').textContent =
+    `上次更新：${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())} UTC`;
+
+  startAutoRefresh(icaos);
+  generateNOTAMLinks('');
+  initTurbli();
+}
+
+// ── Extra airport query ───────────────────────────────────
+async function fetchExtraAirport() {
+  const raw = document.getElementById('wx-extra').value.trim();
+  if (!raw) return;
+  const ic = toICAO(raw);
+  const sec = document.getElementById('extra-section');
+  sec.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto;width:20px;height:20px;border-width:2px"></div></div>`;
+  const [mMap, tMap] = await Promise.all([fetchMETARBatch([ic]), fetchTAFBatch([ic])]);
+  sec.innerHTML = renderWXCard(ic, mMap[ic], tMap[ic], '');
+}
+
+// ── D-ATIS ────────────────────────────────────────────────
+async function queryDATIS() {
+  const raw = document.getElementById('datis-input').value.trim();
+  if (!raw) return;
+  const ic = toICAO(raw);
+  const sec = document.getElementById('datis-result');
+  sec.innerHTML = `<div style="text-align:center;padding:16px"><div class="spinner" style="margin:0 auto;width:20px;height:20px;border-width:2px"></div></div>`;
   try {
-    // Try via Cloudflare Worker proxy first; fallback to direct AVWX
-    const resp = await fetch(`${WORKER_URL}/api/weather/metar?icao=${code}`).catch(() => null);
-    if (resp && resp.ok) {
-      const data = await resp.json();
-      return data;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(`https://datis.clowd.io/api/${ic}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    const data = r.ok ? await r.json() : null;
+
+    if (data && Array.isArray(data) && data.length > 0) {
+      sec.innerHTML = data.map(atis => `<div class="metar-box">
+        <div class="metar-header">
+          <div class="metar-icao">${ic} D-ATIS${atis.type ? ' — '+atis.type : ''}</div>
+          <div class="metar-cat" style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3)">LIVE</div>
+        </div>
+        <div class="metar-raw" style="margin-top:8px">${atis.datis}</div>
+      </div>`).join('');
+    } else {
+      sec.innerHTML = `<div class="metar-box" style="padding:12px 14px">
+        <div class="metar-header">
+          <div class="metar-icao">${ic}</div>
+          <div class="metar-cat" style="background:rgba(71,85,105,.3);color:var(--text3)">N/A</div>
+        </div>
+        <div style="color:var(--text3);font-size:12px;padding:4px 0">
+          無線上 D-ATIS（此機場請使用 ACARS 或無線電）
+        </div>
+      </div>`;
     }
-    // Direct AVWX (requires API key in worker; graceful fallback)
-    return null;
   } catch(e) {
-    return null;
+    sec.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:12px">查詢失敗：${e.message}</div>`;
   }
 }
 
-function parseMETARCategory(raw) {
-  if (!raw) return { cat: 'N/A', cls: '' };
-  // Simple heuristic: look for visibility and cloud ceiling
-  const visMatch = raw.match(/\s(\d{4})\s/);
-  const vis = visMatch ? parseInt(visMatch[1]) : 9999;
-  if (vis < 1500) return { cat: 'IFR',  cls: 'cat-imc' };
-  if (vis < 5000) return { cat: 'MVFR', cls: 'cat-mvfr' };
-  return { cat: 'VMC', cls: 'cat-vmc' };
+// ── NOTAM ─────────────────────────────────────────────────
+function isJapan(ic) { return /^(RJ|RO)/i.test(ic || ''); }
+
+function generateNOTAMLinks(override) {
+  const dep  = ofpAirports[0] || '';
+  const dest = override ? toICAO(override) : (ofpAirports[1] || '');
+  const container = document.getElementById('notam-links');
+  let html = '';
+
+  if (dep || dest) {
+    const jp = isJapan(dep)||isJapan(dest) ? '<span style="margin-left:8px;color:var(--gold)">🗾 日本航線</span>' : '';
+    html += `<div class="cred-info" style="margin-bottom:8px">
+      <span class="tag">航線</span>${dep||'—'} → ${dest||'—'}${jp}
+    </div>`;
+  }
+
+  html += '<div class="links-grid">';
+  html += `<a class="link-card" href="https://www.icao.int/safety/iStars/Pages/NOTAM-Search.aspx" target="_blank">
+    <div class="link-icon">🌐</div><div class="link-name">ICAO NOTAMam</div><div class="link-desc">ICAO 官方查詢</div>
+  </a>`;
+
+  const locs = [dep, dest].filter(Boolean).join(',');
+  const faaUrl = locs
+    ? `https://www.notams.faa.gov/dinsQueryWeb/queryRetrievalMapAction.do?reportType=Raw&retrieveLocId=${locs}&actionType=notamRetrievalByICAOs`
+    : 'https://www.notams.faa.gov/dinsQueryWeb/';
+  html += `<a class="link-card" href="${faaUrl}" target="_blank">
+    <div class="link-icon">🇺🇸</div><div class="link-name">FAA NOTAM</div>
+    <div class="link-desc">${locs ? locs.replace(',','→') : '點選查詢'}</div>
+  </a>`;
+
+  if (isJapan(dep) || isJapan(dest)) {
+    html += `<a class="link-card" href="https://aisjapan.mlit.go.jp/Login.do" target="_blank">
+      <div class="link-icon">🗾</div><div class="link-name">AIS Japan</div><div class="link-desc">日本官方 NOTAM</div>
+    </a>`;
+    const skyIcao = dest || dep;
+    html += `<a class="link-card" href="https://www.skyinfo.jp/pilot/notam/${skyIcao ? '?icao='+skyIcao : ''}" target="_blank">
+      <div class="link-icon">🗺</div><div class="link-name">Skyinfo 地圖</div>
+      <div class="link-desc">${skyIcao ? skyIcao+' 視覺化' : 'NOTAM 地圖'}</div>
+    </a>`;
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
-function renderMETARBox(icao, data) {
-  const raw = data ? (data.raw || data.sanitized || '') : '';
-  const { cat, cls } = parseMETARCategory(raw);
-  const label = { RCTP:'桃園', RJAA:'東京成田', RJTT:'東京羽田', RJBB:'大阪關西',
-    WMKK:'吉隆坡', VVTS:'胡志明市', VTBS:'曼谷', VHHH:'香港', RPLL:'馬尼拉',
-    RJFF:'福岡', ROAH:'沖繩', RJCC:'札幌' }[icao] || '';
-
-  return `<div class="metar-box">
-    <div class="metar-header">
-      <div class="metar-icao">${icao}${label ? ' · '+label : ''}</div>
-      <div class="metar-cat ${cls}">${cat}</div>
-    </div>
-    ${raw
-      ? `<div class="metar-raw">${raw}</div>`
-      : `<div style="color:var(--text3);font-size:12px;padding:8px 0">無法取得 METAR（離線或 API 限制）</div>`
-    }
-  </div>`;
+// ── Turbli ────────────────────────────────────────────────
+function initTurbli() {
+  const dep  = ofpAirports[0] || '';
+  const dest = ofpAirports[1] || '';
+  const btn  = document.getElementById('turbli-route-btn');
+  const lnk  = document.getElementById('turbli-ext-link');
+  if (dep && dest) {
+    btn.style.display = '';
+    btn.textContent = `✈️ ${dep} → ${dest}`;
+    lnk.href = `https://turbli.com/?dep=${dep}&dest=${dest}`;
+  }
+}
+function openTurbliWithRoute() {
+  const dep  = ofpAirports[0] || '';
+  const dest = ofpAirports[1] || '';
+  window.open((dep && dest) ? `https://turbli.com/?dep=${dep}&dest=${dest}` : 'https://turbli.com', '_blank');
 }
 
-async function fetchAllMETAR() {
-  const dep  = document.getElementById('wx-dep').value.trim();
-  const dest = document.getElementById('wx-dest').value.trim();
-  const altn = document.getElementById('wx-altn').value.trim();
-  const airports = [dep, dest, altn].filter(Boolean);
-
-  if (!airports.length) { alert('請輸入至少一個機場代碼'); return; }
-
-  const section = document.getElementById('metar-section');
-  section.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner" style="margin:0 auto"></div></div>';
-
-  const results = await Promise.all(airports.map(async a => {
-    const data = await fetchMETAR(a);
-    return { icao: a.toUpperCase(), data };
-  }));
-
-  const html = results.map(r => renderMETARBox(r.icao, r.data)).join('');
-  section.innerHTML = html;
-  localStorage.setItem('pf_last_wx', JSON.stringify({ dep, dest, altn, html, ts: Date.now() }));
-}
-
-// ── Windy layers ──────────────────────────────────────────
+// ── Windy ────────────────────────────────────────────────
 const WINDY = {
   radar:   'https://embed.windy.com/embed.html?type=map&overlay=radar&zoom=4&lat=20&lon=120',
   sat:     'https://embed.windy.com/embed.html?type=map&overlay=satellite&zoom=4&lat=20&lon=120',
@@ -226,6 +668,10 @@ function setWindy(btn, type) {
   btn.classList.add('active');
   document.getElementById('windy-frame').src = WINDY[type];
 }
+
+// ── Init ──────────────────────────────────────────────────
+generateNOTAMLinks('');
+fetchAndRenderOFP();
 </script>
 </body>
 </html>

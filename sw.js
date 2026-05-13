@@ -1,4 +1,4 @@
-const CACHE = 'planflight-v1';
+const CACHE = 'planflight-v7';
 
 const STATIC = [
   './',
@@ -6,6 +6,7 @@ const STATIC = [
   'brief.html',
   'ac.html',
   'wx.html',
+  'charts.html',
   'tools.html',
   'log.html',
   'style.css',
@@ -30,10 +31,15 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Skip non-GET and navigation requests (HTML page loads) — let browser handle directly
-  // This avoids Safari's "SW has redirections" error when serve does 301 clean-URL redirect
   if (e.request.method !== 'GET') return;
-  if (e.request.mode === 'navigate') return;
+
+  // HTML page navigation → Network-First, fallback to cache (enables offline use)
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(e.request).then(c => c || caches.match('index.html')))
+    );
+    return;
+  }
 
   // API calls → Network-First (fallback to cache if offline)
   if (url.hostname.includes('workers.dev') || url.pathname.startsWith('/api/')) {
