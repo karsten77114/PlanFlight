@@ -645,7 +645,13 @@ async function queryDATIS(icaoArg) {
       return '📻';
     };
 
-    sec.innerHTML = data.sections.map(s => `
+    const atisOnly = data.sections.filter(s => !/^(metar|taf)$/i.test(s.title.trim()));
+    if (!atisOnly.length) {
+      sec.innerHTML = `<div class="datis-card"><div class="datis-na">${ic} 目前無 D-ATIS 資料<br><span style="font-size:11px">請使用 ACARS 或無線電確認</span></div></div>`;
+      return;
+    }
+
+    sec.innerHTML = atisOnly.map(s => `
       <div class="datis-card">
         <div class="datis-card-title">
           ${iconFor(s.title)} ${s.title}
